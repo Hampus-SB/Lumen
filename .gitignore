@@ -1,3 +1,6 @@
+*.lu
+build/
+
 # Prerequisites
 *.d
 
