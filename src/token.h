@@ -14,7 +14,7 @@ typedef enum {
 	TYPE        = 0x03,
 	BRACE_OPEN  = 0x04,
 	BRACE_CLOSE = 0x05,
-	RETURN      = 0x06,
+	EXIT        = 0x06,
 	INT_LITERAL = 0x07,
 } TokenType;
 
@@ -33,7 +33,7 @@ void print_token(Token* token) {
 	else if (token->type == 0x03) printf("type");
 	else if (token->type == 0x04) printf("{");
 	else if (token->type == 0x05) printf("}");
-	else if (token->type == 0x06) printf("return");
+	else if (token->type == 0x06) printf("exit");
 	else if (token->type == 0x07) printf("int literal");
 	else printf("Unsupported token type (this should not happen).\n");
 
@@ -47,14 +47,15 @@ void print_token(Token* token) {
 
 void token_init(const char* str, Token* token) {
 	token->has_value = 0;  // default to false
-	
+	printf(": %s, %zu\n", str, strlen(str));
+
 	// check for keywords / symbols
-	if (strcmp(str, "i32") == 0) token->type = TYPE;
-	else if (strcmp(str, "=") == 0) token->type = EQUALS;
-	else if (strcmp(str, ";") == 0) token->type = SEMICOLON;
-	else if (strcmp(str, "{") == 0) token->type = BRACE_OPEN;
-	else if (strcmp(str, "}") == 0) token->type = BRACE_CLOSE;
-	else if (strcmp(str, "return") == 0) token->type = RETURN;
+	if (strcmp(str, "i32") == 0) { token->type = TYPE; return; }
+	else if (strcmp(str, "=") == 0) { token->type = EQUALS; return; }
+	else if (strcmp(str, ";") == 0) { token->type = SEMICOLON; return; }
+	else if (strcmp(str, "{") == 0) { token->type = BRACE_OPEN; return; }
+	else if (strcmp(str, "}") == 0) { token->type = BRACE_CLOSE; return; }
+	else if (strcmp(str, "exit") == 0) {token->type = EXIT; return; }
 
 	// determine if type is a literal or a variable name
 	int int_lit = 0;

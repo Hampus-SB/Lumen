@@ -1,4 +1,4 @@
-#include "token.h"
+#include "parser.h"
 
 #define FILE_BUFFER_SIZE 8192
 #define FILE_BUFFER_LINE_SIZE 128
@@ -30,6 +30,12 @@ int main(int argc, char** argv) {
 	int count = tokens_from_source(file, tokens);
 	for (int i = 0; i < count; i++) {
 		print_token(tokens[i]);
+	}
+
+	NodeRoot root;
+	parse(&root, tokens, count);
+
+	for (int i = 0; i < count; i++) {
 		free(tokens[i]);
 	}
 	free(tokens);
