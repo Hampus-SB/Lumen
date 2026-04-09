@@ -4,8 +4,8 @@
 #include <ctype.h>
 
 // remove
-#define TOKEN_COUNT 32
-#define TOKEN_BUFFER_SIZE 32
+#define TOKEN_COUNT 256
+#define TOKEN_BUFFER_SIZE 64
 
 typedef enum {
 	VARIABLE    = 0x00,
@@ -16,15 +16,22 @@ typedef enum {
 	BRACE_CLOSE = 0x05,
 	EXIT        = 0x06,
 	INT_LITERAL = 0x07,
+	ADD         = 0x08,
+	SUBTRACT    = 0x09,
+	MULTIPLY    = 0x0a,
+	DIVIDE      = 0x0b,
 } TokenType;
 
 typedef struct {
 	TokenType type;
 	int has_value;  // boolean
 	char value[TOKEN_BUFFER_SIZE];
+	int line;  // line number where token is defined in src
 } Token;
 
 
+
+int line;
 
 void print_token(Token* token) {
 	if (token->type == 0x00) printf("variable");
@@ -47,6 +54,8 @@ void print_token(Token* token) {
 
 void token_init(const char* str, Token* token) {
 	token->has_value = 0;  // default to false
+	token->line = line;
+
 	//printf(": %s, %zu\n", str, strlen(str));
 
 	// check for keywords / symbols
@@ -55,14 +64,18 @@ void token_init(const char* str, Token* token) {
 	else if (strcmp(str, ";") == 0) { token->type = SEMICOLON; return; }
 	else if (strcmp(str, "{") == 0) { token->type = BRACE_OPEN; return; }
 	else if (strcmp(str, "}") == 0) { token->type = BRACE_CLOSE; return; }
-	else if (strcmp(str, "exit") == 0) {token->type = EXIT; return; }
+	else if (strcmp(str, "exit") == 0) { token->type = EXIT; return; }
+	else if (strcmp(str, "+") == 0) { token->type = ADD; return; }
+	else if (strcmp(str, "-") == 0) { token->type = SUBTRACT; return; }
+	else if (strcmp(str, "*") == 0) { token->type = MULTIPLY; return; }
+	else if (strcmp(str, "/") == 0) { token->type = DIVIDE; return; }
 
 	// determine if type is a literal or a variable name
 	int int_lit = 0;
 	if (isdigit(str[0])) {
 		for (int i = 1; i < strlen(str); i++) {
 			if (!isdigit(str[i])) {
-				printf("Invalid syntax. '%s'\n", str);
+				printf("Invalid syntax. '%s' :%i\n", str, line);
 				exit(EXIT_FAILURE);  // leaks memory
 			}
 		}
@@ -98,13 +111,15 @@ int tokens_from_source(const char* src, Token** tokens) {
 	int idx_tok = 0;
 	int idx_buf = 0;
 	int idx_src = 0;
+	
+	line = 1;
 
 	// replace with for loop
 	while (1) {
 		char c = src[idx_src++];
 
 		if (c == '\0') break;  // EOF
-		if (c == '\n') continue;  // ignore newline
+		if (c == '\n') { line++; continue; }  // ignore newline
 		
 		if (c == ';') {
 			// add token thats currently in buffer

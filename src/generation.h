@@ -5,7 +5,7 @@
 
 typedef struct {
 	char name[VARIABLE_NAME_SIZE];
-	int offset;  // byte offset
+	int location; 
 } Variable;
 
 Variable stack[STACK_SIZE];
@@ -25,10 +25,12 @@ void pop(FILE* fh, const char* reg) {
 // put value in stack
 void generate_expression(FILE* fh, Node* node) {
 	if (node->type != EXPRESSION) {
-		fprintf(stderr, "Expected expression node.\n");
+		fprintf(stderr, "Expected expression node. :%i\n", 
+				node->token->line);
 		return;
 	} if (!node->token->has_value) {
-		fprintf(stderr, "Expression token has no value.\n");
+		fprintf(stderr, "Expression token has no value. :%i\n", 
+				node->token->line);
 		return;
 	}
 
@@ -40,17 +42,21 @@ void generate_expression(FILE* fh, Node* node) {
 
 		case VARIABLE:
 			int match = 0;
-			for (int i = 0; i < stack_index; i++) {
+			for (int i = 0; i <= stack_index; i++) {
 				if (strcmp(stack[i].name,
 							node->token->value) == 0) {
 					match = 1;
 					fprintf(fh, "\tpush QWORD [rsp + %i]\n",
-							stack[i].offset);
+							(stack_index - stack[i].location - 1) * 8);
+					stack_index++;
 					break;
 				}
 			}
 			if (!match) {
-				fprintf(stderr, "Variable name does not exist.\n");
+				fprintf(stderr, 
+						"Variable name does not exist.. '%s' :%i\n",
+						node->token->value,
+						node->token->line);
 				return;
 			}
 			break;
@@ -59,11 +65,78 @@ void generate_expression(FILE* fh, Node* node) {
 			fprintf(stderr, "Node type unsupported.\n");
 			break;
 	}
+
+	// move expression into desired variable
+	if (node->parent->token->type == VARIABLE && 
+			node->parent->type != DECLARATION) {
+		int match = 0;
+		for (int i = 0; i <= stack_index; i++) {
+			if (strcmp(stack[i].name,
+						node->parent->token->value) == 0) {
+				match = 1;
+				pop(fh, "rax");
+				fprintf(fh, "\tmov [rsp + %i], rax\n",
+						(stack_index - stack[i].location - 1) * 8);
+				break;
+			}
+		}
+		if (!match) {
+			fprintf(stderr, 
+					"Variable name does not exist... '%s' :%i\n",
+					node->parent->token->value,
+					node->parent->token->line);
+		}
+	}
+}
+
+// takes in node with type operator
+// perform operation
+void generate_operator(FILE* fh, Node* node) {
+	if (node->parent->type == DECLARATION) {
+		// create variable on stack
+		fprintf(fh, "\tmov rax, 0\n");
+		push(fh, "rax");
+	}
+
+	// push both operands to the stack
+	generate_expression(fh, &node->children[0]);
+	generate_expression(fh, &node->children[1]);
+
+	pop(fh, "rbx");
+	pop(fh, "rax");
+
+	if (node->token->type == ADD)
+		fprintf(fh, "\tadd rax, rbx\n");
+	else if (node->token->type == SUBTRACT)
+		fprintf(fh, "\tsub rax, rbx\n");
+	else if (node->token->type == MULTIPLY)
+		fprintf(fh, "\tmul rax, rbx\n");
+	else if (node->token->type == DIVIDE)
+		fprintf(fh, "\tdiv rax, rbx\n");
+	else
+		fprintf(stderr, "Bowser Jr. :%i\n", 
+				node->token->line);
+
+	int match = 0;
+	for (int i = 0; i <= stack_index; i++) {
+		if (strcmp(stack[i].name, node->parent->token->value) == 0) {
+			match = 1;
+			fprintf(fh, "\tmov [rsp + %i], rax\n", 
+				   (stack_index - stack[i].location - 1) * 8);
+		}
+	}
+	if (!match) {
+		fprintf(stderr, "Variable name does not exist. '%s' :%i\n",
+				node->parent->token->value,
+				node->token->line);
+	}
 }
 
 void generate_statement(FILE* fh, Node* node) {
 	switch (node->token->type) {
 		case EXIT:
+			fprintf(fh, "\n");
+
 			generate_expression(fh, &node->children[0]);
 
 			fprintf(fh, "\tmov rax, 60\n");
@@ -75,18 +148,30 @@ void generate_statement(FILE* fh, Node* node) {
 		case VARIABLE:
 			if (!node->token->has_value) {
 				fprintf(stderr, 
-						"Variable token does not have a value\n");
+						"Variable token does not have a value. %i\n", 
+						node->token->line);
 				return;
 			}
 
-			strcpy(stack[stack_index].name, node->token->value);
-			stack[stack_index].offset = stack_index * 8 + 8;
+			if (node->type == DECLARATION) {
+				// adds variable to compiler stack
+				strcpy(stack[stack_index].name, node->token->value);
+				stack[stack_index].location = stack_index;
+			}
 
-			generate_expression(fh, &node->children[0]);
+			if (node->children[0].type == EXPRESSION) {
+				generate_expression(fh, &node->children[0]);
+			} else if (node->children[0].type == OPERATOR) {
+				generate_operator(fh, &node->children[0]);
+			} else {
+				fprintf(stderr, "Major shitballs 2. :%i\n",
+						node->token->line);
+			}
 
 			break;
 		default:
-			fprintf(stderr, "Unsupported token type.\n");
+			fprintf(stderr, "Unsupported token type. :%i\n", 
+					node->token->line);
 			break;
 	}
 }
@@ -111,13 +196,19 @@ void generate_asm(NodeRoot* root, const char* out_path) {
 	for (int i = 0; i < root->len; i++) {
 		Node* node = &root->children[i];
 
-		if (node->type != STATEMENT) {
-			fprintf(stderr, "Node in root is not a statement.\n");
+		if (node->type != STATEMENT && node->type != DECLARATION) {
+			fprintf(stderr, "Node in root is not a statement. :%i\n", 
+					node->token->line);
 			return;
 		}
 
 		generate_statement(fh, node);
 	}
+
+	fprintf(fh, "\n\tmov rax, 60\n");
+	fprintf(fh, "\tmov rdi, 0\n");
+	fprintf(fh, "\tleave\n");
+	fprintf(fh, "\tsyscall\n");
 
 	fclose(fh);
 }
