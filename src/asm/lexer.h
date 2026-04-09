@@ -11,6 +11,7 @@ typedef enum {
     TOK_REGISTER,
     TOK_NUMBER,
     TOK_STRING,
+    TOK_MEMMAN,
     TOK_COMMA
 } TokenType;
 

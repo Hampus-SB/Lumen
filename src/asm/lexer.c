@@ -41,6 +41,24 @@ int lex_line(const char *line, Token tokens[], int max_tokens) {
             continue;
         }
 
+        // if memory management , []
+        if (line[i] == '[') {
+            int start = i;
+            
+            // get length
+            while (line[i] != ']') i++;
+            i++;
+
+            int len = i - start;
+            strncpy(tokens[t].text, &line[start], len);
+            tokens[t].text[len] = '\0'; // add nullterminator
+            tokens[t].type = TOK_MEMMAN; // assign type MEMMAN to token
+            t++; // increment token counter
+
+            continue;
+        }
+
+
         // identifier / label / register / number / the shit
         if (isalnum(line[i]) || line[i] == '_' || line[i] == '.') {
             int start = i;
@@ -56,8 +74,8 @@ int lex_line(const char *line, Token tokens[], int max_tokens) {
                 tokens[t].type = TOK_LABEL;
                 i++;
             }
-            // register (r0–r9)
-            else if (tokens[t].text[0] == 'r' && isdigit(tokens[t].text[1])) {
+            // if register
+            else if (tokens[t].text[0] == 'r') {
                 tokens[t].type = TOK_REGISTER;
             }
             // number
