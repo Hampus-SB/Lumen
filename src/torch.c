@@ -1,4 +1,4 @@
-#include "parser.h"
+#include "generation.h"
 
 #define FILE_BUFFER_SIZE 8192
 #define FILE_BUFFER_LINE_SIZE 128
@@ -23,22 +23,27 @@ int main(int argc, char** argv) {
 		strcat(file, buffer);
 	}
 
-	//printf("source:\n%s\n", file);
 	fclose(fh);
 
 	Token** tokens = calloc(TOKEN_COUNT, sizeof(Token));
 	int count = tokens_from_source(file, tokens);
 	for (int i = 0; i < count; i++) {
-		print_token(tokens[i]);
+		//print_token(tokens[i]);
 	}
 
 	NodeRoot root;
 	parse(&root, tokens, count);
+	print_tree(&root);
+	generate_asm(&root, "build/a.asm");
+
+	//system("nasm -felf64 build/a.asm -o build/a.o");
+	//system("ld build/a.o -o build/a.out");
 
 	for (int i = 0; i < count; i++) {
 		free(tokens[i]);
 	}
 	free(tokens);
+	free_tree(&root);
 
 	return 0;
 }

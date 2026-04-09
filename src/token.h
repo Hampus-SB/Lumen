@@ -47,7 +47,7 @@ void print_token(Token* token) {
 
 void token_init(const char* str, Token* token) {
 	token->has_value = 0;  // default to false
-	printf(": %s, %zu\n", str, strlen(str));
+	//printf(": %s, %zu\n", str, strlen(str));
 
 	// check for keywords / symbols
 	if (strcmp(str, "i32") == 0) { token->type = TYPE; return; }
