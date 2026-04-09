@@ -36,8 +36,8 @@ int main(int argc, char** argv) {
 	print_tree(&root);
 	generate_asm(&root, "build/a.asm");
 
-	//system("nasm -felf64 build/a.asm -o build/a.o");
-	//system("ld build/a.o -o build/a.out");
+	system("nasm -felf64 build/a.asm");
+	system("ld build/a.o -o a.out");
 
 	for (int i = 0; i < count; i++) {
 		free(tokens[i]);
