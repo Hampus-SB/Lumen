@@ -7,6 +7,8 @@
 #define TOKEN_COUNT 256
 #define TOKEN_BUFFER_SIZE 64
 
+#define FUNCTION_SPECIAL '#'
+
 typedef enum {
 	VARIABLE    = 0x00,
 	EQUALS      = 0x01,
@@ -20,6 +22,9 @@ typedef enum {
 	SUBTRACT    = 0x09,
 	MULTIPLY    = 0x0a,
 	DIVIDE      = 0x0b,
+	FUNC_NAME   = 0x0c,
+	PAREN_OPEN  = 0x0d,
+	PAREN_CLOSE = 0x0e,
 } TokenType;
 
 typedef struct {
@@ -42,6 +47,13 @@ void print_token(Token* token) {
 	else if (token->type == 0x05) printf("}");
 	else if (token->type == 0x06) printf("exit");
 	else if (token->type == 0x07) printf("int literal");
+	else if (token->type == 0x08) printf("add");
+	else if (token->type == 0x09) printf("subtract");
+	else if (token->type == 0x0a) printf("multiply");
+	else if (token->type == 0x0b) printf("divide");
+	else if (token->type == 0x0c) printf("func name");
+	else if (token->type == 0x0d) printf("(");
+	else if (token->type == 0x0e) printf(")");
 	else printf("Unsupported token type (this should not happen).\n");
 
 	if (token->has_value) {
@@ -69,8 +81,11 @@ void token_init(const char* str, Token* token) {
 	else if (strcmp(str, "-") == 0) { token->type = SUBTRACT; return; }
 	else if (strcmp(str, "*") == 0) { token->type = MULTIPLY; return; }
 	else if (strcmp(str, "/") == 0) { token->type = DIVIDE; return; }
+	else if (strcmp(str, "(") == 0) { token->type = PAREN_OPEN; return; }
+	else if (strcmp(str, ")") == 0) { token->type = PAREN_CLOSE; return; }
 
 	// determine if type is a literal or a variable name
+	// or function name
 	int int_lit = 0;
 	if (isdigit(str[0])) {
 		for (int i = 1; i < strlen(str); i++) {
@@ -82,12 +97,26 @@ void token_init(const char* str, Token* token) {
 		int_lit = 1;
 	}
 
-	if (int_lit)
-		token->type = INT_LITERAL;
-	else
-		token->type = VARIABLE;
-
 	token->has_value = 1;
+	
+	if (int_lit) {
+		token->type = INT_LITERAL;
+	} else {
+		if (str[strlen(str) - 1] == FUNCTION_SPECIAL) {
+			token->type = FUNC_NAME;
+
+			char s[TOKEN_BUFFER_SIZE];
+			strcpy(s, str);
+			s[strlen(s) - 1] = '\0';
+			
+			strcpy(token->value, s);
+			return;
+		}
+		else {
+			token->type = VARIABLE;
+		}
+	}
+
 	// store the token value as a string
 	strcpy(token->value, str);  
 }
@@ -147,6 +176,27 @@ int tokens_from_source(const char* src, Token** tokens) {
 
 			// add the } token
 			add_token(tokens, &idx_tok, "}");
+		}
+		else if (c == '(') {
+			// manipulate buffer
+			buffer[idx_buf++] = FUNCTION_SPECIAL;
+
+			// add token thats currently in buffer
+			add_token(tokens, &idx_tok, buffer);
+			memset(buffer, 0, TOKEN_BUFFER_SIZE);
+			idx_buf = 0;
+			
+			// add the ( token
+			add_token(tokens, &idx_tok, "(");
+		}
+		else if (c == ')') {
+			// add token thats currently in buffer
+			add_token(tokens, &idx_tok, buffer);
+			memset(buffer, 0, TOKEN_BUFFER_SIZE);
+			idx_buf = 0;
+			
+			// add the ) token
+			add_token(tokens, &idx_tok, ")");
 		}
 		else if (c == ' ') {
 			// add token from buffer

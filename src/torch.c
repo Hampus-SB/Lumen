@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
 	Token** tokens = calloc(TOKEN_COUNT, sizeof(Token));
 	int count = tokens_from_source(file, tokens);
 	for (int i = 0; i < count; i++) {
-		//print_token(tokens[i]);
+		print_token(tokens[i]);
 	}
 
 	NodeRoot root;

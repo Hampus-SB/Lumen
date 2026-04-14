@@ -8,6 +8,7 @@ typedef enum {
 	STATEMENT,
 	EXPRESSION,
 	OPERATOR,
+	DECLARATION_FUNC,
 } NodeType;
 
 typedef struct Node {
@@ -75,6 +76,85 @@ void parse_operator(Node* node, Token** tokens, int i) {
 	parse_expression(node_op, tokens, i + 2);
 }
 
+void parse_exit(Node* node, Token** tokens, int i) {
+	Token* token = tokens[i];
+
+	// create exit node
+	Node* exit_node = &node->children[node->len++];
+	exit_node->type = STATEMENT;
+	exit_node->parent = NULL;
+	exit_node->token = token;
+	exit_node->len = 0;
+	exit_node->children = malloc(sizeof(Node) * 
+			NODE_CHILDREN_COUNT);
+
+	// move to token after exit
+	parse_expression(exit_node, tokens, i + 1);
+
+	printf("parse_exit\n");
+}
+
+void parse_function(Node* node, Token** tokens, int* i) {
+	Node* node = &root->children[node->len++];
+
+	while (tokens[*i]->type != BRACE_CLOSE) {
+		Node* node_stmt = &node->children[node->len++];
+		node_stmt->type = STATEMENT;
+		node_stmt->parent = NULL;
+		node_stmt->token = tokens[*i];
+		node_stmt->len = 0;
+		node_stmt->children = malloc(sizeof(Node) * 
+				NODE_CHILDREN_COUNT);
+
+		*i += 1;
+	}
+	*i += 1;
+}
+
+void parse_node(Node* node, Token** tokens, int* index, int len) {
+	int i;
+
+	for (i = *index; i < len; i++) {
+		Token* token = tokens[i];
+
+		if (token->type == EXIT) {
+			if (i + 2 >= len) {
+				fprintf(stderr, 
+						"Missing tokens after statement. :%i\n", 
+						token->line);
+				continue;
+			}
+
+			parse_exit(node, tokens, i);
+			i += 2;
+		}
+
+		else if (token->type == TYPE) {
+			if (i + 4 >= len) {
+				fprintf(stderr, 
+						"Missing tokens after statement. :%i\n", 
+						token->line);
+				continue;
+			}
+
+			if (tokens[i + 1]->type == FUNC_NAME) {
+				parse_function(node);
+			} 
+			else if (tokens[i + 1]->type == VARIABLE) {
+
+			} 
+			else {
+				fprintf(stderr, 
+						"Unknown token after type. :%i\n", 
+						token->line);
+			}
+		}
+	}
+
+	// update index for callee
+	*index = i;
+}
+
 // parse entire program
 void parse(NodeRoot* root, Token** tokens, int len) {
 	Token* token;
@@ -83,20 +163,10 @@ void parse(NodeRoot* root, Token** tokens, int len) {
 
 		if (token->type == EXIT) {
 			if (i + 2 < len) {
-				// create exit node
-				Node* exit_node = &root->children[root->len++];
-				exit_node->type = STATEMENT;
-				exit_node->parent = NULL;
-				exit_node->token = token;
-				exit_node->len = 0;
-				exit_node->children = malloc(sizeof(Node) * 
-						NODE_CHILDREN_COUNT);
-	
-				i++;  // move to token after exit
-				parse_expression(exit_node, tokens, i);
-				i++;  // skip semicolon
-				continue;
-			} else {
+				parse_exit(root, tokens, i);
+				root->len++;
+				i += 2;
+			} else {	
 				fprintf(stderr, 
 						"Missing tokens after statement. :%i\n",
 						token->line);
@@ -104,6 +174,26 @@ void parse(NodeRoot* root, Token** tokens, int len) {
 		}
 
 		else if (token->type == TYPE) {
+			if (i + 1 < len && 
+					tokens[i + 1]->type == FUNC_NAME) {
+				if (!(i + 3 < len && 
+							tokens[i + 2]->type == PAREN_OPEN  &&
+							tokens[i + 3]->type == PAREN_CLOSE)) {
+					fprintf(stderr, 
+							"Expected parenthesis after function name. :%i\n", token->line);
+				}
+
+				if (i + 5 < len) {
+					i += 4;
+					parse_function(root, tokens, &i);
+				} else {
+					fprintf(stderr, 
+							"Expected braces after function. :%i\n", 
+							token->line);
+				}
+
+				continue;
+			}
 			if (i + 4 < len) {
 				// represents the variable
 				Node* node_stmt = &root->children[root->len++];
