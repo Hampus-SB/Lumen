@@ -31,7 +31,9 @@ int main(int argc, char** argv) {
 		print_token(tokens[i]);
 	}
 
-	NodeRoot root;
+	Node root;
+	root.children = malloc(sizeof(Node) * NODE_ROOT_CHILDREN_COUNT);
+	root.len = 0;
 	parse(&root, tokens, count);
 	print_tree(&root);
 	generate_asm(&root, "build/a.asm");

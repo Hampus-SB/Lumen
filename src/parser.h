@@ -20,11 +20,6 @@ typedef struct Node {
 	Token* token;
 } Node;
 
-typedef struct {
-	Node children[NODE_ROOT_CHILDREN_COUNT];
-	int len;
-} NodeRoot;
-
 // parse for 'node' child expression
 // create expression child node for 'node'
 void parse_expression(Node* node, Token** tokens, int i) {
@@ -94,24 +89,18 @@ void parse_exit(Node* node, Token** tokens, int i) {
 	printf("parse_exit\n");
 }
 
-void parse_function(Node* node, Token** tokens, int* i) {
-	Node* node = &root->children[node->len++];
-
+// i is at function name token
+void parse_function(Node* parent, Token** tokens, int* i) {
 	while (tokens[*i]->type != BRACE_CLOSE) {
-		Node* node_stmt = &node->children[node->len++];
-		node_stmt->type = STATEMENT;
-		node_stmt->parent = NULL;
-		node_stmt->token = tokens[*i];
-		node_stmt->len = 0;
-		node_stmt->children = malloc(sizeof(Node) * 
-				NODE_CHILDREN_COUNT);
+		Token* token = tokens[*i];
 
 		*i += 1;
 	}
 	*i += 1;
 }
 
-void parse_node(Node* node, Token** tokens, int* index, int len) {
+// parse for children of one depth (kindof)
+void parse_node(Node* parent, Token** tokens, int* index, int len) {
 	int i;
 
 	for (i = *index; i < len; i++) {
@@ -125,7 +114,7 @@ void parse_node(Node* node, Token** tokens, int* index, int len) {
 				continue;
 			}
 
-			parse_exit(node, tokens, i);
+			parse_exit(parent, tokens, i);
 			i += 2;
 		}
 
@@ -138,7 +127,9 @@ void parse_node(Node* node, Token** tokens, int* index, int len) {
 			}
 
 			if (tokens[i + 1]->type == FUNC_NAME) {
-				parse_function(node);
+				i++;
+				printf("Warning: functions not supported. :%i\n", token->line);
+				parse_function(parent, tokens, &i);
 			} 
 			else if (tokens[i + 1]->type == VARIABLE) {
 
@@ -156,15 +147,13 @@ void parse_node(Node* node, Token** tokens, int* index, int len) {
 }
 
 // parse entire program
-void parse(NodeRoot* root, Token** tokens, int len) {
-	Token* token;
+void parse(Node* root, Token** tokens, int len) {
 	for (int i = 0; i < len; i++) {
-		token = tokens[i];
+		Token* token = tokens[i];
 
 		if (token->type == EXIT) {
 			if (i + 2 < len) {
 				parse_exit(root, tokens, i);
-				root->len++;
 				i += 2;
 			} else {	
 				fprintf(stderr, 
@@ -273,10 +262,10 @@ void parse(NodeRoot* root, Token** tokens, int len) {
 	}
 }
 
-void free_tree(NodeRoot* root) {
+void free_tree(Node* root) {
 }
 
-void print_tree(NodeRoot* root) {
+void print_tree(Node* root) {
 	for (int i = 0; i < root->len; i++) {
 		printf("node type: %d, token type: %d, :%i\n", 
 				root->children[i].type,
