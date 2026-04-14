@@ -1,6 +1,5 @@
 *.lu
 build/
-*.asm
 
 # Prerequisites
 *.d
