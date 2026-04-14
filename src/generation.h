@@ -174,9 +174,10 @@ void generate_statement(FILE* fh, Node* node) {
 					node->token->line);
 			break;
 	}
+
 }
 
-void generate_asm(NodeRoot* root, const char* out_path) {
+void generate_asm(Node* root, const char* out_path) {
 	FILE* fh = fopen(out_path, "w");
 	if (fh == NULL) {
 		fprintf(stderr, "Failed to create output file.\n");
