@@ -35,7 +35,11 @@ int main(int argc, char** argv) {
 	root.children = malloc(sizeof(Node) * NODE_ROOT_CHILDREN_COUNT);
 	root.len = 0;
 	parse(&root, tokens, count);
+	
 	print_tree(&root);
+	printf("|\n");
+	print_tree(&root.children[0]);
+	
 	generate_asm(&root, "build/a.asm");
 
 	system("nasm -felf64 build/a.asm");

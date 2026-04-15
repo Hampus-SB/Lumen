@@ -34,8 +34,6 @@ typedef struct {
 	int line;  // line number where token is defined in src
 } Token;
 
-
-
 int line;
 
 void print_token(Token* token) {
@@ -126,10 +124,21 @@ void add_token(Token** tokens, int* len, const char* buffer) {
 	if (buffer[0] == '\0')
 		return;
 
+	int offset = 0;
+	char* buf = malloc(sizeof(char) * TOKEN_BUFFER_SIZE);
+	memset(buf, 0, TOKEN_BUFFER_SIZE);
+	strcpy(buf, buffer);
+	
+	while (isspace(*buf)) { buf++; offset--; };
+
+	printf("aaaaa : '%s' %zu\n", buf, strlen(buf));
+
 	Token* token = malloc(sizeof(Token));
-	token_init(buffer, token);
+	token_init(buf, token);
 	tokens[*len] = token;
 	*len += 1;
+
+	free(buf + offset);
 }
 
 // TODO: conjoin the if statements

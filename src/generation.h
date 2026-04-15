@@ -132,6 +132,35 @@ void generate_operator(FILE* fh, Node* node) {
 	}
 }
 
+void generate_statement(FILE*, Node*);
+
+void generate_function(FILE* fh, Node* node) {
+	printf("a\n");
+
+	if (node->type != DECLARATION_FUNC) {
+		fprintf(stderr, "Expected function declaration. :%i\n", 
+				node->token->line);
+		return;
+	}
+
+	fprintf(fh, "\n%s:\n", node->token->value);
+	fprintf(fh, "\tenter 64, 0\n");
+
+	for (int i = 0; i < node->len; i++) {
+		if (node->type != STATEMENT && node->type != DECLARATION && 
+				node->type != DECLARATION_FUNC) {
+			fprintf(stderr, "Node in root is not a valid type. :%i\n", 
+					node->token->line);
+			return;
+		}
+
+		generate_statement(fh, &node->children[i]);
+	}
+
+	fprintf(fh, "\tleave\n");
+	fprintf(fh, "\tret\n");
+}
+
 void generate_statement(FILE* fh, Node* node) {
 	switch (node->token->type) {
 		case EXIT:
@@ -169,12 +198,15 @@ void generate_statement(FILE* fh, Node* node) {
 			}
 
 			break;
+		case FUNC_NAME:
+			generate_function(fh, node);
+			
+			break;
 		default:
 			fprintf(stderr, "Unsupported token type. :%i\n", 
 					node->token->line);
 			break;
 	}
-
 }
 
 void generate_asm(Node* root, const char* out_path) {
@@ -184,21 +216,15 @@ void generate_asm(Node* root, const char* out_path) {
 		return;
 	}
 
-	fprintf(fh, "global _start\n_start:\n");
-	fprintf(fh, "\tenter %i, 0\n", STACK_SIZE);  // setup stack
-
-	if (root->len < 1) {
-		// TODO: something
-		return;
-	}
-
+	fprintf(fh, "global _start\n");
 	stack_index = 0;
 
 	for (int i = 0; i < root->len; i++) {
 		Node* node = &root->children[i];
 
-		if (node->type != STATEMENT && node->type != DECLARATION) {
-			fprintf(stderr, "Node in root is not a statement. :%i\n", 
+		if (node->type != STATEMENT && node->type != DECLARATION && 
+				node->type != DECLARATION_FUNC) {
+			fprintf(stderr, "Node in root is not a valid type. :%i\n", 
 					node->token->line);
 			return;
 		}
@@ -206,6 +232,8 @@ void generate_asm(Node* root, const char* out_path) {
 		generate_statement(fh, node);
 	}
 
+	fprintf(fh, "\n_start:\n");
+	fprintf(fh, "\tenter %i, 0\n", STACK_SIZE);  // setup stack
 	fprintf(fh, "\n\tmov rax, 60\n");
 	fprintf(fh, "\tmov rdi, 0\n");
 	fprintf(fh, "\tleave\n");

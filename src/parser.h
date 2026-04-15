@@ -50,6 +50,7 @@ void parse_expression(Node* node, Token** tokens, int i) {
 	*/
 }
 
+// i is at first expression (expr op expr ;)
 void parse_operator(Node* node, Token** tokens, int i) {
 	Node* node_op = &node->children[0];
 	node_op->type = OPERATOR;
@@ -62,8 +63,8 @@ void parse_operator(Node* node, Token** tokens, int i) {
 			node_op->token->type != SUBTRACT &&
 			node_op->token->type != MULTIPLY &&
 			node_op->token->type != DIVIDE) {
-		fprintf(stderr, "Operator not supported :%i\n", 
-				node_op->token->line);
+		fprintf(stderr, "Operator not supported '%s'.:%i\n", 
+				node_op->token->value, node_op->token->line);
 		exit(EXIT_FAILURE);
 	}
 
@@ -77,7 +78,7 @@ void parse_exit(Node* node, Token** tokens, int i) {
 	// create exit node
 	Node* exit_node = &node->children[node->len++];
 	exit_node->type = STATEMENT;
-	exit_node->parent = NULL;
+	exit_node->parent = node;
 	exit_node->token = token;
 	exit_node->len = 0;
 	exit_node->children = malloc(sizeof(Node) * 
@@ -89,14 +90,59 @@ void parse_exit(Node* node, Token** tokens, int i) {
 	printf("parse_exit\n");
 }
 
-// i is at function name token
-void parse_function(Node* parent, Token** tokens, int* i) {
-	while (tokens[*i]->type != BRACE_CLOSE) {
-		Token* token = tokens[*i];
+// i is at variable name token
+void parse_variable(Node* parent, Token** tokens, int* i, int len) {
+	Node* node_stmt = &parent->children[parent->len++];
+	node_stmt->type = DECLARATION;
+	node_stmt->parent = parent;
+	node_stmt->token = tokens[*i];
+	node_stmt->len = 0;
+	node_stmt->children = malloc(sizeof(Node) * 
+			NODE_CHILDREN_COUNT);
 
-		*i += 1;
+	// i32 name = 1;
+	// i32 name = 1 + 2;
+
+	if (*i + 3 >= len) {
+		fprintf(stderr, "Missing tokens. :%i\n", 
+				tokens[*i]->line);
+		return;
 	}
-	*i += 1;
+
+	if (tokens[*i + 3]->type == SEMICOLON) {
+		// parse for expression
+		*i += 2;
+		parse_expression(node_stmt, tokens, *i);
+		*i += 1;  // skip semicolon
+	} 
+	else {
+		if (*i + 5 >= len) {
+			fprintf(stderr, "Missing tokens. :%i\n", 
+					tokens[*i]->line);
+			return;
+		}
+		if (tokens[*i + 5]->type == SEMICOLON) {
+			*i += 2;
+			parse_operator(node_stmt, tokens, *i);
+			*i += 3;
+		}
+	}
+}
+
+// forward declare because is C is dogshit
+void parse_node(Node*, Token**, int*, int);
+
+// i is at function name token
+void parse_function(Node* parent, Token** tokens, int* i, int len) {
+	Node* node_func = &parent->children[parent->len++];
+	node_func->type = DECLARATION_FUNC;
+	node_func->parent = parent;
+	node_func->len = 0;
+	node_func->children = malloc(sizeof(Node) * NODE_CHILDREN_COUNT);
+	node_func->token = tokens[*i];
+
+	*i += 4;
+	parse_node(node_func, tokens, i, len);
 }
 
 // parse for children of one depth (kindof)
@@ -105,6 +151,18 @@ void parse_node(Node* parent, Token** tokens, int* index, int len) {
 
 	for (i = *index; i < len; i++) {
 		Token* token = tokens[i];
+
+		if (parent->type == DECLARATION_FUNC) {
+			printf(":%i\n", parent->len);
+			printf(":|%i '%s':\n", token->type, token->value);
+		}
+
+		if (token->type == BRACE_CLOSE) {
+			// exit
+			printf("brace close\n");
+			*index = i;
+			return;
+		}
 
 		if (token->type == EXIT) {
 			if (i + 2 >= len) {
@@ -127,18 +185,34 @@ void parse_node(Node* parent, Token** tokens, int* index, int len) {
 			}
 
 			if (tokens[i + 1]->type == FUNC_NAME) {
+				// move to function name token
 				i++;
 				printf("Warning: functions not supported. :%i\n", token->line);
-				parse_function(parent, tokens, &i);
+				parse_function(parent, tokens, &i, len);
 			} 
 			else if (tokens[i + 1]->type == VARIABLE) {
-
+				// move to variable name token
+				i++;
+				parse_variable(parent, tokens, &i, len);
 			} 
 			else {
 				fprintf(stderr, 
-						"Unknown token after type. :%i\n", 
+						"Unknown token after type specifier. :%i\n", 
 						token->line);
 			}
+		}
+
+		else if (token->type == VARIABLE) {
+			// x = 1;
+			// x = 1 + 2;
+			parse_variable(parent, tokens, &i, len);
+			parent->children[parent->len - 1].type = STATEMENT;
+		}
+
+		else {
+			fprintf(stderr, 
+					"Invalid token type (ignoring). :%i\n", 
+					token->line);
 		}
 	}
 
@@ -148,6 +222,12 @@ void parse_node(Node* parent, Token** tokens, int* index, int len) {
 
 // parse entire program
 void parse(Node* root, Token** tokens, int len) {
+	for (int i = 0; i < len; i++) {
+		parse_node(root, tokens, &i, len);
+	}
+	return;
+
+	/*
 	for (int i = 0; i < len; i++) {
 		Token* token = tokens[i];
 
@@ -260,6 +340,7 @@ void parse(Node* root, Token** tokens, int len) {
 			fprintf(stderr, "Invalid token type. :%i\n", token->line);
 		}
 	}
+	*/
 }
 
 void free_tree(Node* root) {
