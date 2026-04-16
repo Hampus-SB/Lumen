@@ -24,7 +24,7 @@ void pop(FILE* fh, const char* reg) {
 // an expression is either a literal or a variable
 // put value in stack
 void generate_expression(FILE* fh, Node* node) {
-	if (node->type != EXPRESSION) {
+	if (node->type != NODE_EXPRESSION) {
 		fprintf(stderr, "Expected expression node. :%i\n", 
 				node->token->line);
 		return;
@@ -68,7 +68,7 @@ void generate_expression(FILE* fh, Node* node) {
 
 	// move expression into desired variable
 	if (node->parent->token->type == VARIABLE && 
-			node->parent->type != DECLARATION) {
+			node->parent->type != NODE_DECLARATION) {
 		int match = 0;
 		for (int i = 0; i <= stack_index; i++) {
 			if (strcmp(stack[i].name,
@@ -92,7 +92,7 @@ void generate_expression(FILE* fh, Node* node) {
 // takes in node with type operator
 // perform operation
 void generate_operator(FILE* fh, Node* node) {
-	if (node->parent->type == DECLARATION) {
+	if (node->parent->type == NODE_DECLARATION) {
 		// create variable on stack
 		fprintf(fh, "\tmov rax, 0\n");
 		push(fh, "rax");
@@ -137,7 +137,7 @@ void generate_statement(FILE*, Node*);
 void generate_function(FILE* fh, Node* node) {
 	printf("a\n");
 
-	if (node->type != DECLARATION_FUNC) {
+	if (node->type != NODE_DECLARATION_FUNC) {
 		fprintf(stderr, "Expected function declaration. :%i\n", 
 				node->token->line);
 		return;
@@ -147,8 +147,8 @@ void generate_function(FILE* fh, Node* node) {
 	fprintf(fh, "\tenter 64, 0\n");
 
 	for (int i = 0; i < node->len; i++) {
-		if (node->type != STATEMENT && node->type != DECLARATION && 
-				node->type != DECLARATION_FUNC) {
+		if (node->type != NODE_STATEMENT && node->type != NODE_DECLARATION && 
+				node->type != NODE_DECLARATION_FUNC) {
 			fprintf(stderr, "Node in root is not a valid type. :%i\n", 
 					node->token->line);
 			return;
@@ -182,15 +182,15 @@ void generate_statement(FILE* fh, Node* node) {
 				return;
 			}
 
-			if (node->type == DECLARATION) {
+			if (node->type == NODE_DECLARATION) {
 				// adds variable to compiler stack
 				strcpy(stack[stack_index].name, node->token->value);
 				stack[stack_index].location = stack_index;
 			}
 
-			if (node->children[0].type == EXPRESSION) {
+			if (node->children[0].type == NODE_EXPRESSION) {
 				generate_expression(fh, &node->children[0]);
-			} else if (node->children[0].type == OPERATOR) {
+			} else if (node->children[0].type == NODE_OPERATOR) {
 				generate_operator(fh, &node->children[0]);
 			} else {
 				fprintf(stderr, "Major shitballs 2. :%i\n",
@@ -222,8 +222,8 @@ void generate_asm(Node* root, const char* out_path) {
 	for (int i = 0; i < root->len; i++) {
 		Node* node = &root->children[i];
 
-		if (node->type != STATEMENT && node->type != DECLARATION && 
-				node->type != DECLARATION_FUNC) {
+		if (node->type != NODE_STATEMENT && node->type != NODE_DECLARATION && 
+				node->type != NODE_DECLARATION_FUNC) {
 			fprintf(stderr, "Node in root is not a valid type. :%i\n", 
 					node->token->line);
 			return;
