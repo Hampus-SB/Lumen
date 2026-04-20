@@ -25,6 +25,7 @@ typedef enum {
 	FUNC_NAME   = 0x0c,
 	PAREN_OPEN  = 0x0d,
 	PAREN_CLOSE = 0x0e,
+	RETURN      = 0x0f,
 } TokenType;
 
 typedef struct {
@@ -52,6 +53,7 @@ void print_token(Token* token) {
 	else if (token->type == 0x0c) printf("func name");
 	else if (token->type == 0x0d) printf("(");
 	else if (token->type == 0x0e) printf(")");
+	else if (token->type == 0x0f) printf("return");
 	else printf("Unsupported token type (this should not happen).\n");
 
 	if (token->has_value) {
@@ -81,6 +83,7 @@ void token_init(const char* str, Token* token) {
 	else if (strcmp(str, "/") == 0) { token->type = DIVIDE; return; }
 	else if (strcmp(str, "(") == 0) { token->type = PAREN_OPEN; return; }
 	else if (strcmp(str, ")") == 0) { token->type = PAREN_CLOSE; return; }
+	else if (strcmp(str, "return") == 0) { token->type = RETURN; return; }
 
 	// determine if type is a literal or a variable name
 	// or function name

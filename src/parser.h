@@ -9,6 +9,7 @@ typedef enum {
 	NODE_EXPRESSION,
 	NODE_OPERATOR,
 	NODE_DECLARATION_FUNC,
+	NODE_CALL_FUNC,
 } NodeType;
 
 // TODO: dynamic arrays
@@ -41,7 +42,9 @@ void parser_init(Token** tokens, int len) {
 Token* parser_peek(int offset) {
 	// bounds check
 	if (parser.i + offset - 1 >= parser.len) {
-		printf("Index out of bounds.\n");
+		printf("Parser index out of bounds.\n");
+		printf("offset: %i\n", offset);
+		printf("plast: %s\n", parser.tokens[parser.i - 1]->type);
 		return NULL;
 	}
 	return parser.tokens[parser.i + offset];
@@ -51,7 +54,8 @@ Token* parser_peek(int offset) {
 Token* parser_consume() {
 	// bounds check
 	if (parser.i - 1 >= parser.len) {
-		printf("Index out of bounds.\n");
+		printf("Parser index out of bounds.\n");
+		printf("clast: %s\n", parser.tokens[parser.i - 1]->type);
 		return NULL;
 	}
 	return parser.tokens[parser.i++];
@@ -200,6 +204,31 @@ void parse_exit(Node* parent) {
 	*/
 }
 
+void parse_function_call(Node* parent) {
+	if (parser_peek(1)->type != PAREN_OPEN && 
+			parser_peek(2)->type != PAREN_CLOSE &&
+			parser_peek(3)->type != SEMICOLON) {
+		fprintf(stderr, "Invalid syntax for function call.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	Token* token = parser_peek(0);
+
+	// create call node
+	Node* node_call = &parent->children[parent->len++];
+	node_call->type = NODE_CALL_FUNC;
+	node_call->parent = parent;
+	node_call->token = token;
+	node_call->len = 0;
+	node_call->children = malloc(sizeof(Node) * 
+			NODE_CHILDREN_COUNT);
+
+	parser_consume();
+	parser_consume();
+	parser_consume();
+	parser_consume();
+}
+
 // i is at variable name token
 void parse_variable(Node* parent) {
 	Node* node_stmt = &parent->children[parent->len++];
@@ -216,6 +245,14 @@ void parse_variable(Node* parent) {
 		parser_consume();
 
 		parse_expression(node_stmt);
+	}
+	else if (parser_peek(3)->type == PAREN_OPEN) {
+		// consume variable name and equal sign
+		parser_consume();
+		parser_consume();
+
+		// parse for function return value
+		parse_function_call(node_stmt);
 	}
 	else if (parser_peek(5)->type == SEMICOLON) {
 		// consume variable name and equal sign
@@ -307,6 +344,27 @@ void parse_function(Node* parent) {
 	*/
 }
 
+void parse_return(Node* parent) {
+	if (parser_peek(2)->type != SEMICOLON) {
+		fprintf(stderr, "Expected semicolon after return.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	Token* token = parser_peek(0);
+
+	// create return node
+	Node* node_ret = &parent->children[parent->len++];
+	node_ret->type = NODE_STATEMENT;
+	node_ret->parent = parent;
+	node_ret->token = token;
+	node_ret->len = 0;
+	node_ret->children = malloc(sizeof(Node) * 
+			NODE_CHILDREN_COUNT);
+
+	parser_consume();
+	parse_expression(node_ret);
+}
+
 // parse for children of one depth (kindof)
 void parse_node(Node* parent) {
 	Token* token = parser_peek(0);
@@ -343,6 +401,10 @@ void parse_node(Node* parent) {
 		else if (token->type == VARIABLE) {
 			parse_variable(parent);
 			parent->children[parent->len - 1].type = NODE_STATEMENT;
+		}
+
+		else if (token->type == RETURN) {
+			parse_return(parent);
 		}
 		
 		else {

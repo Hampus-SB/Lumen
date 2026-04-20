@@ -28,19 +28,24 @@ int main(int argc, char** argv) {
 	Token** tokens = calloc(TOKEN_COUNT, sizeof(Token));
 	int count = tokens_from_source(file, tokens);
 	for (int i = 0; i < count; i++) {
-		print_token(tokens[i]);
+		//print_token(tokens[i]);
 	}
+	printf("generated tokens\n");
 
 	Node root;
 	root.children = malloc(sizeof(Node) * NODE_ROOT_CHILDREN_COUNT);
 	root.len = 0;
 	parse(&root, tokens, count);
 	
-	print_tree(&root);
-	printf("|\n");
-	print_tree(&root.children[0]);
+	printf("parsed ast\n");
+
+	//print_tree(&root);
+	//printf("|\n");
+	//print_tree(&root.children[0]);
 	
 	generate_asm(&root, "build/a.asm");
+
+	printf("generated assembly\n");
 
 	system("nasm -felf64 build/a.asm");
 	system("ld build/a.o -o a.out");
