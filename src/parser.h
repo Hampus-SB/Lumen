@@ -380,6 +380,10 @@ void parse_node(Node* parent) {
 			parse_exit(parent);
 		}
 
+		else if (token->type == FUNC_NAME) {
+			parse_function_call(parent);
+		}
+
 		else if (token->type == TYPE) {
 			if (parser_peek(1)->type == FUNC_NAME) {
 				// consume type token

@@ -240,8 +240,12 @@ void generate_statement(FILE* fh, Node* node) {
 
 			break;
 		case FUNC_NAME:
-			generate_function(fh, node);
-			
+			if (node->type == NODE_CALL_FUNC) {
+				generate_function_call(fh, node);
+			} else { 
+				generate_function(fh, node);
+			}
+
 			break;
 		case RETURN:
 			generate_return(fh, node);
