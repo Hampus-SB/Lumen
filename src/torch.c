@@ -15,8 +15,7 @@ int main(int argc, char** argv) {
 		exit(EXIT_FAILURE);
 	}
 
-	char file[FILE_BUFFER_SIZE];
-	memset(file, 0, FILE_BUFFER_SIZE);
+	char file[FILE_BUFFER_SIZE] = {0};
 
 	char buffer[FILE_BUFFER_LINE_SIZE];
 	while (fgets(buffer, FILE_BUFFER_LINE_SIZE, fh) != NULL) {
@@ -25,23 +24,28 @@ int main(int argc, char** argv) {
 
 	fclose(fh);
 
-	Token** tokens = calloc(TOKEN_COUNT, sizeof(Token));
-	int count = tokens_from_source(file, tokens);
-	for (int i = 0; i < count; i++) {
-		//print_token(tokens[i]);
+	arena_init(&arena, ARENA_DEFAULT_SIZE);
+
+	TokenArray tokens;
+	tokens.capacity = TOKEN_DEFAULT_COUNT;
+	tokens.count = 0;
+	tokens.tokens = arena_alloc(&arena, tokens.capacity * sizeof(Token));
+
+	tokens_from_source(file, &tokens);
+
+	for (int i = 0; i < tokens.count; i++) {
+		token_print(&tokens.tokens[i]);
 	}
+
 	printf("generated tokens\n");
 
 	Node root;
 	root.children = malloc(sizeof(Node) * NODE_ROOT_CHILDREN_COUNT);
 	root.len = 0;
-	parse(&root, tokens, count);
-	
-	printf("parsed ast\n");
 
-	//print_tree(&root);
-	//printf("|\n");
-	//print_tree(&root.children[0]);
+	parse(&root, tokens);
+
+	printf("parsed ast\n");
 	
 	generate_asm(&root, "build/a.asm");
 
@@ -50,11 +54,7 @@ int main(int argc, char** argv) {
 	system("nasm -felf64 build/a.asm");
 	system("ld build/a.o -o a.out");
 
-	for (int i = 0; i < count; i++) {
-		free(tokens[i]);
-	}
-	free(tokens);
-	free_tree(&root);
+	arena_free(&arena);
 
 	return 0;
 }

@@ -3,87 +3,103 @@
 #include <string.h>
 #include <ctype.h>
 
-// remove
-#define TOKEN_COUNT 256
-#define TOKEN_BUFFER_SIZE 64
+#include "arena.h"
+
+#define TOKEN_DEFAULT_COUNT 256
+#define TOKEN_BUFFER_SIZE 32
 
 #define FUNCTION_SPECIAL '#'
 
+// the index need to match the TokenType enum
+const char* keywords[] = {
+	"=", "+", "-", "*", "/",
+	"(", ")", "{", "}",
+	";", "return", "exit",
+	"i64", "i32", "i16", "i8",
+	"ui64", "ui32", "ui16", "ui8",
+};
+
 typedef enum {
-	VARIABLE    = 0x00,
-	EQUALS      = 0x01,
-	SEMICOLON   = 0x02,
-	TYPE        = 0x03,
-	BRACE_OPEN  = 0x04,
-	BRACE_CLOSE = 0x05,
-	EXIT        = 0x06,
-	INT_LITERAL = 0x07,
-	ADD         = 0x08,
-	SUBTRACT    = 0x09,
-	MULTIPLY    = 0x0a,
-	DIVIDE      = 0x0b,
-	FUNC_NAME   = 0x0c,
-	PAREN_OPEN  = 0x0d,
-	PAREN_CLOSE = 0x0e,
-	RETURN      = 0x0f,
+	EQUALS,
+	ADD,
+	SUBTRACT,
+	MULTIPLY,
+	DIVIDE,
+	PAREN_OPEN,
+	PAREN_CLOSE,
+	BRACE_OPEN,
+	BRACE_CLOSE,
+	SEMICOLON,
+	RETURN,
+	EXIT,
+	TYPE,
+
+	VARIABLE,
+	FUNC_NAME,
+	INT_LITERAL,
 } TokenType;
 
 typedef struct {
 	TokenType type;
 	int has_value;  // boolean
 	char value[TOKEN_BUFFER_SIZE];
-	int line;  // line number where token is defined in src
+	int line;  // line number where token is defined in source
 } Token;
+
+typedef struct {
+	Token* tokens;
+	size_t capacity;
+	size_t count;
+} TokenArray;
 
 int line;
 
-void print_token(Token* token) {
-	if (token->type == 0x00) printf("variable");
-	else if (token->type == 0x01) printf("=");
-	else if (token->type == 0x02) printf(";");
-	else if (token->type == 0x03) printf("type");
-	else if (token->type == 0x04) printf("{");
-	else if (token->type == 0x05) printf("}");
-	else if (token->type == 0x06) printf("exit");
-	else if (token->type == 0x07) printf("int literal");
-	else if (token->type == 0x08) printf("add");
-	else if (token->type == 0x09) printf("subtract");
-	else if (token->type == 0x0a) printf("multiply");
-	else if (token->type == 0x0b) printf("divide");
-	else if (token->type == 0x0c) printf("func name");
-	else if (token->type == 0x0d) printf("(");
-	else if (token->type == 0x0e) printf(")");
-	else if (token->type == 0x0f) printf("return");
-	else printf("Unsupported token type (this should not happen).\n");
-
+void token_print(const Token* token) {
+	printf("token: ");
+	if (token->type < 12) {
+		printf("'%s'", keywords[token->type]);
+	} else if (token->type == TYPE) {
+		printf("'type'");
+	}else if (token->type == VARIABLE) {
+		printf("'variable'");
+	} else if (token->type == FUNC_NAME) {
+		printf("'func_name'");
+	} else if (token->type == INT_LITERAL) {
+		printf("'int_lit'");
+	} else {
+		printf("'???'");
+	}
 	if (token->has_value) {
-		printf(", value: %s", token->value);
+		printf(", '%s'", token->value);
 	}
 	printf("\n");
 }
 
-
+void token_append(TokenArray* tokens, const Token* token) {
+	if (tokens->count + 1 > tokens->capacity) {
+		arena_extend(&arena);
+		tokens->capacity *= 2;
+	}
+	tokens->tokens[tokens->count++] = *token;
+}
 
 void token_init(const char* str, Token* token) {
 	token->has_value = 0;  // default to false
 	token->line = line;
 
-	//printf(": %s, %zu\n", str, strlen(str));
-
-	// check for keywords / symbols
-	if (strcmp(str, "i32") == 0) { token->type = TYPE; return; }
-	else if (strcmp(str, "=") == 0) { token->type = EQUALS; return; }
-	else if (strcmp(str, ";") == 0) { token->type = SEMICOLON; return; }
-	else if (strcmp(str, "{") == 0) { token->type = BRACE_OPEN; return; }
-	else if (strcmp(str, "}") == 0) { token->type = BRACE_CLOSE; return; }
-	else if (strcmp(str, "exit") == 0) { token->type = EXIT; return; }
-	else if (strcmp(str, "+") == 0) { token->type = ADD; return; }
-	else if (strcmp(str, "-") == 0) { token->type = SUBTRACT; return; }
-	else if (strcmp(str, "*") == 0) { token->type = MULTIPLY; return; }
-	else if (strcmp(str, "/") == 0) { token->type = DIVIDE; return; }
-	else if (strcmp(str, "(") == 0) { token->type = PAREN_OPEN; return; }
-	else if (strcmp(str, ")") == 0) { token->type = PAREN_CLOSE; return; }
-	else if (strcmp(str, "return") == 0) { token->type = RETURN; return; }
+	for (int i = 0; i < 20; i++) {
+		if (strcmp(str, keywords[i]) == 0) {
+			// matches against a type
+			if (i >= 12) {
+				token->has_value = 1;
+				strncpy(token->value, keywords[i], TOKEN_BUFFER_SIZE);
+				token->type = TYPE;
+				return;
+			}
+			token->type = i;
+			return;
+		}
+	}
 
 	// determine if type is a literal or a variable name
 	// or function name
@@ -99,7 +115,7 @@ void token_init(const char* str, Token* token) {
 	}
 
 	token->has_value = 1;
-	
+
 	if (int_lit) {
 		token->type = INT_LITERAL;
 	} else {
@@ -109,20 +125,18 @@ void token_init(const char* str, Token* token) {
 			char s[TOKEN_BUFFER_SIZE];
 			strcpy(s, str);
 			s[strlen(s) - 1] = '\0';
-			
+
 			strcpy(token->value, s);
 			return;
 		}
-		else {
-			token->type = VARIABLE;
-		}
+		token->type = VARIABLE;
 	}
 
 	// store the token value as a string
-	strcpy(token->value, str);  
+	strcpy(token->value, str);
 }
 
-void add_token(Token** tokens, int* len, const char* buffer) {
+void add_token(TokenArray* tokens, const char* buffer) {
 	// if buffer is empty there is no token
 	if (buffer[0] == '\0')
 		return;
@@ -134,22 +148,19 @@ void add_token(Token** tokens, int* len, const char* buffer) {
 	
 	while (isspace(*buf)) { buf++; offset--; };
 
-	printf("aaaaa : '%s' %zu\n", buf, strlen(buf));
+	//printf("aaaaa : '%s' %zu\n", buf, strlen(buf));
 
-	Token* token = malloc(sizeof(Token));
-	token_init(buf, token);
-	tokens[*len] = token;
-	*len += 1;
+	Token token;
+	token_init(buf, &token);
+	token_append(tokens, &token);
 
 	free(buf + offset);
 }
 
 // TODO: conjoin the if statements
-int tokens_from_source(const char* src, Token** tokens) {
-	char buffer[TOKEN_BUFFER_SIZE];
-	memset(buffer, 0, TOKEN_BUFFER_SIZE);
-	
-	int idx_tok = 0;
+void tokens_from_source(const char* src, TokenArray* tokens) {
+	char buffer[TOKEN_BUFFER_SIZE] = {0};
+
 	int idx_buf = 0;
 	int idx_src = 0;
 	
@@ -164,55 +175,55 @@ int tokens_from_source(const char* src, Token** tokens) {
 		
 		if (c == ';') {
 			// add token thats currently in buffer
-			add_token(tokens, &idx_tok, buffer);
+			add_token(tokens, buffer);
 			memset(buffer, 0, TOKEN_BUFFER_SIZE);
 			idx_buf = 0;
 
 			// add the ; token
-			add_token(tokens, &idx_tok, ";");
+			add_token(tokens, ";");
 		}
 		else if (c == '{') {
 			// add token thats currently in buffer
-			add_token(tokens, &idx_tok, buffer);
+			add_token(tokens, buffer);
 			memset(buffer, 0, TOKEN_BUFFER_SIZE);
 			idx_buf = 0;
 
 			// add the { token
-			add_token(tokens, &idx_tok, "{");
+			add_token(tokens, "{");
 		}
 		else if (c == '}') {
 			// add token thats currently in buffer
-			add_token(tokens, &idx_tok, buffer);
+			add_token(tokens, buffer);
 			memset(buffer, 0, TOKEN_BUFFER_SIZE);
 			idx_buf = 0;
 
 			// add the } token
-			add_token(tokens, &idx_tok, "}");
+			add_token(tokens, "}");
 		}
 		else if (c == '(') {
 			// manipulate buffer
 			buffer[idx_buf++] = FUNCTION_SPECIAL;
 
 			// add token thats currently in buffer
-			add_token(tokens, &idx_tok, buffer);
+			add_token(tokens, buffer);
 			memset(buffer, 0, TOKEN_BUFFER_SIZE);
 			idx_buf = 0;
 			
 			// add the ( token
-			add_token(tokens, &idx_tok, "(");
+			add_token(tokens, "(");
 		}
 		else if (c == ')') {
 			// add token thats currently in buffer
-			add_token(tokens, &idx_tok, buffer);
+			add_token(tokens, buffer);
 			memset(buffer, 0, TOKEN_BUFFER_SIZE);
 			idx_buf = 0;
 			
 			// add the ) token
-			add_token(tokens, &idx_tok, ")");
+			add_token(tokens, ")");
 		}
 		else if (c == ' ') {
 			// add token from buffer
-			add_token(tokens, &idx_tok, buffer);
+			add_token(tokens, buffer);
 			memset(buffer, 0, TOKEN_BUFFER_SIZE);
 			idx_buf = 0;
 		}
@@ -220,6 +231,4 @@ int tokens_from_source(const char* src, Token** tokens) {
 			buffer[idx_buf++] = c;
 		}
 	}
-
-	return idx_tok;
 }

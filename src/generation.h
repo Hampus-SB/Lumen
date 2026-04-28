@@ -138,8 +138,6 @@ void generate_operator(FILE* fh, Node* node) {
 void generate_statement(FILE*, Node*);
 
 void generate_function(FILE* fh, Node* node) {
-	printf("a\n");
-
 	if (node->type != NODE_DECLARATION_FUNC) {
 		fprintf(stderr, "Expected function declaration. :%i\n", 
 				node->token->line);

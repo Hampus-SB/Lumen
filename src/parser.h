@@ -13,10 +13,9 @@ typedef enum {
 } NodeType;
 
 // TODO: dynamic arrays
-// TODO: dont store token as pointer
 
 typedef struct Node {
-	NodeType type;  // ???
+	NodeType type;
 	struct Node* parent;
 	struct Node* children;
 	int len;  // how many children
@@ -25,40 +24,49 @@ typedef struct Node {
 } Node;
 
 typedef struct {
-	Token** tokens;
-	int len;
+	TokenArray tokens;
 	int i;
 } Parser;
 
 Parser parser;
 
-void parser_init(Token** tokens, int len) {
+void parser_init(const TokenArray tokens) {
 	parser.tokens = tokens;
-	parser.len = len;
 	parser.i = 0;
 }
 
 // peek at a token
 Token* parser_peek(int offset) {
 	// bounds check
-	if (parser.i + offset - 1 >= parser.len) {
-		printf("Parser index out of bounds.\n");
-		printf("offset: %i\n", offset);
-		printf("plast: %s\n", parser.tokens[parser.i - 1]->type);
+	if (parser.i + offset >= (int)parser.tokens.count) {
+		printf("parser_peek(): index out of bounds.\n");
+		printf("parser.i: %d\n", parser.i);
+		printf("offset: %d\n", offset);
+		printf("tokens.count: %zu\n", parser.tokens.count);
 		return NULL;
 	}
-	return parser.tokens[parser.i + offset];
+	return &parser.tokens.tokens[parser.i + offset];
 }
 
 // returns current token and advances
 Token* parser_consume() {
 	// bounds check
-	if (parser.i - 1 >= parser.len) {
-		printf("Parser index out of bounds.\n");
-		printf("clast: %s\n", parser.tokens[parser.i - 1]->type);
+	if (parser.i - 1 >= (int)parser.tokens.count) {
+		printf("parser_consume(): index out of bounds.\n");
 		return NULL;
 	}
-	return parser.tokens[parser.i++];
+	return &parser.tokens.tokens[parser.i++];
+}
+
+void node_init(Node* node, Node* parent, NodeType type, Token* token, int children) {
+	node->type = type;
+	node->parent = parent;
+	node->token = token;
+	node->len = 0;
+	if (children != 0) {
+		//node->children = malloc(sizeof(Node) * NODE_CHILDREN_COUNT);
+		node->children = arena_alloc(&arena, sizeof(Node) * children);
+	}
 }
 
 // create expression child node for 'parent'
@@ -75,42 +83,17 @@ void parse_expression(Node* parent) {
 	}
 
 	// NOTE: children are not allocated for the expression node
-	node_expr->type = NODE_EXPRESSION;
+	node_init(node_expr, parent, NODE_EXPRESSION, token, 0);
+	/*node_expr->type = NODE_EXPRESSION;
 	node_expr->parent = parent;
 	node_expr->token = token;
-	node_expr->len = 0;
+	node_expr->len = 0;*/
 
 	// consume expression token
 	parser_consume();
 
 	// consume either semicolon or operator token
 	parser_consume();
-
-
-
-	/*
-	Token* token = tokens[i];
-	if (token->type != VARIABLE && token->type != INT_LITERAL) {
-		fprintf(stderr, 
-				"Expected variable or literal token. :%i\n", 
-				token->line);
-		exit(EXIT_FAILURE);  // leaks memory
-	}
-
-	// NOTE: children are not allocated for the expression node
-	expr_node->type = NODE_EXPRESSION;
-	expr_node->parent = node;
-	expr_node->token = token;
-	expr_node->len = 0;
-	
-	*i += 1;
-	token = tokens[*i];
-	if (token->type != SEMICOLON) {
-		fprintf(stderr, "Expected semicolon after expression. :i\n",
-				token->line);
-		exit(EXIT_FAILURE);
-	}
-	*/
 }
 
 // i is at first expression (expr op expr ;)
@@ -127,38 +110,16 @@ void parse_operator(Node* node) {
 	}
 
 	Node* node_op = &node->children[0];
-	node_op->type = NODE_OPERATOR;
+	node_init(node_op, node, NODE_OPERATOR, token, NODE_CHILDREN_COUNT);
+	/*node_op->type = NODE_OPERATOR;
 	node_op->parent = node;
 	node_op->token = token;
 	node_op->len = 0;
-	node_op->children = malloc(sizeof(Node) * NODE_CHILDREN_COUNT);
+	node_op->children = malloc(sizeof(Node) * NODE_CHILDREN_COUNT);*/
 
 	// parse_expression will consume semicolons and such
 	parse_expression(node_op);
 	parse_expression(node_op);
-
-
-
-	/*
-	Node* node_op = &node->children[0];
-	node_op->type = NODE_OPERATOR;
-	node_op->parent = node;
-	node_op->token = tokens[i + 1];
-	node_op->len = 0;
-	node_op->children = malloc(sizeof(Node) * NODE_CHILDREN_COUNT);
-
-	if (node_op->token->type != ADD &&
-			node_op->token->type != SUBTRACT &&
-			node_op->token->type != MULTIPLY &&
-			node_op->token->type != DIVIDE) {
-		fprintf(stderr, "Operator not supported '%s'.:%i\n", 
-				node_op->token->value, node_op->token->line);
-		exit(EXIT_FAILURE);
-	}
-
-	parse_expression(node_op, tokens, i);
-	parse_expression(node_op, tokens, i + 2);
-	*/
 }
 
 // i is at exit token
@@ -169,39 +130,20 @@ void parse_exit(Node* parent) {
 	}
 
 	Token* token = parser_peek(0);
-	
+
 	// create exit node
 	Node* node_exit = &parent->children[parent->len++];
-	node_exit->type = NODE_STATEMENT;
+	node_init(node_exit, parent, NODE_STATEMENT, token, NODE_CHILDREN_COUNT);
+	/*node_exit->type = NODE_STATEMENT;
 	node_exit->parent = parent;
 	node_exit->token = token;
 	node_exit->len = 0;
 	node_exit->children = malloc(sizeof(Node) * 
-			NODE_CHILDREN_COUNT);
+			NODE_CHILDREN_COUNT);*/
 
 	// move to token after exit
 	parser_consume();
 	parse_expression(node_exit);
-
-
-
-	/*
-	Token* token = tokens[i];
-
-	// create exit node
-	Node* exit_node = &node->children[node->len++];
-	exit_node->type = NODE_STATEMENT;
-	exit_node->parent = node;
-	exit_node->token = token;
-	exit_node->len = 0;
-	exit_node->children = malloc(sizeof(Node) * 
-			NODE_CHILDREN_COUNT);
-
-	// move to token after exit
-	parse_expression(exit_node, tokens, i + 1);
-
-	printf("parse_exit\n");
-	*/
 }
 
 void parse_function_call(Node* parent) {
@@ -216,12 +158,13 @@ void parse_function_call(Node* parent) {
 
 	// create call node
 	Node* node_call = &parent->children[parent->len++];
-	node_call->type = NODE_CALL_FUNC;
+	node_init(node_call, parent, NODE_CALL_FUNC, token, NODE_CHILDREN_COUNT);
+	/*node_call->type = NODE_CALL_FUNC;
 	node_call->parent = parent;
 	node_call->token = token;
 	node_call->len = 0;
 	node_call->children = malloc(sizeof(Node) * 
-			NODE_CHILDREN_COUNT);
+			NODE_CHILDREN_COUNT);*/
 
 	parser_consume();
 	parser_consume();
@@ -231,13 +174,15 @@ void parse_function_call(Node* parent) {
 
 // i is at variable name token
 void parse_variable(Node* parent) {
+	Token* token = parser_peek(0);
 	Node* node_stmt = &parent->children[parent->len++];
-	node_stmt->type = NODE_DECLARATION;
+	node_init(node_stmt, parent, NODE_DECLARATION, token, NODE_CHILDREN_COUNT);
+	/*node_stmt->type = NODE_DECLARATION;
 	node_stmt->parent = parent;
 	node_stmt->token = parser_peek(0);
 	node_stmt->len = 0;
 	node_stmt->children = malloc(sizeof(Node) * 
-			NODE_CHILDREN_COUNT);
+			NODE_CHILDREN_COUNT);*/
 
 	if (parser_peek(3)->type == SEMICOLON) {
 		// consume variable name and equal sign
@@ -267,46 +212,6 @@ void parse_variable(Node* parent) {
 				parser_peek(0)->line);
 		exit(EXIT_FAILURE);
 	}
-
-
-
-	/*
-	Node* node_stmt = &parent->children[parent->len++];
-	node_stmt->type = NODE_DECLARATION;
-	node_stmt->parent = parent;
-	node_stmt->token = tokens[*i];
-	node_stmt->len = 0;
-	node_stmt->children = malloc(sizeof(Node) * 
-			NODE_CHILDREN_COUNT);
-
-	// i32 name = 1;
-	// i32 name = 1 + 2;
-
-	if (*i + 3 >= len) {
-		fprintf(stderr, "Missing tokens. :%i\n", 
-				tokens[*i]->line);
-		return;
-	}
-
-	if (tokens[*i + 3]->type == SEMICOLON) {
-		// parse for expression
-		*i += 2;
-		parse_expression(node_stmt, tokens, *i);
-		*i += 1;  // skip semicolon
-	} 
-	else {
-		if (*i + 5 >= len) {
-			fprintf(stderr, "Missing tokens. :%i\n", 
-					tokens[*i]->line);
-			return;
-		}
-		if (tokens[*i + 5]->type == SEMICOLON) {
-			*i += 2;
-			parse_operator(node_stmt, tokens, *i);
-			*i += 3;
-		}
-	}
-	*/
 }
 
 // forward declare because is C is dogshit
@@ -314,12 +219,14 @@ void parse_node(Node*);
 
 // i is at function name token
 void parse_function(Node* parent) {
+	Token* token = parser_peek(0);
 	Node* node_func = &parent->children[parent->len++];
-	node_func->type = NODE_DECLARATION_FUNC;
+	node_init(node_func, parent, NODE_DECLARATION_FUNC, token, NODE_ROOT_CHILDREN_COUNT);
+	/*node_func->type = NODE_DECLARATION_FUNC;
 	node_func->parent = parent;
 	node_func->len = 0;
 	node_func->children = malloc(sizeof(Node) * NODE_CHILDREN_COUNT);
-	node_func->token = parser_peek(0);
+	node_func->token = parser_peek(0);*/
 
 	// consume function name, parenthesis, open brace tokens
 	parser_consume();
@@ -328,20 +235,6 @@ void parse_function(Node* parent) {
 	parser_consume();
 
 	parse_node(node_func);
-
-	
-
-	/*
-	Node* node_func = &parent->children[parent->len++];
-	node_func->type = NODE_DECLARATION_FUNC;
-	node_func->parent = parent;
-	node_func->len = 0;
-	node_func->children = malloc(sizeof(Node) * NODE_CHILDREN_COUNT);
-	node_func->token = tokens[*i];
-
-	*i += 4;
-	parse_node(node_func, tokens, i, len);
-	*/
 }
 
 void parse_return(Node* parent) {
@@ -354,12 +247,13 @@ void parse_return(Node* parent) {
 
 	// create return node
 	Node* node_ret = &parent->children[parent->len++];
-	node_ret->type = NODE_STATEMENT;
+	node_init(node_ret, parent, NODE_STATEMENT, token, NODE_CHILDREN_COUNT);
+	/*node_ret->type = NODE_STATEMENT;
 	node_ret->parent = parent;
 	node_ret->token = token;
 	node_ret->len = 0;
 	node_ret->children = malloc(sizeof(Node) * 
-			NODE_CHILDREN_COUNT);
+			NODE_CHILDREN_COUNT);*/
 
 	parser_consume();
 	parse_expression(node_ret);
@@ -419,103 +313,19 @@ void parse_node(Node* parent) {
 
 		token = parser_peek(0);
 	}
-
-
-
-	/*
-	int i;
-
-	for (i = *index; i < len; i++) {
-		Token* token = tokens[i];
-
-		if (parent->type == NODE_DECLARATION_FUNC) {
-			printf(":%i\n", parent->len);
-			printf(":|%i '%s':\n", token->type, token->value);
-		}
-
-		if (token->type == BRACE_CLOSE) {
-			// exit
-			printf("brace close\n");
-			*index = i;
-			return;
-		}
-
-		if (token->type == EXIT) {
-			if (i + 2 >= len) {
-				fprintf(stderr, 
-						"Missing tokens after statement. :%i\n", 
-						token->line);
-				continue;
-			}
-
-			parse_exit(parent, tokens, i);
-			i += 2;
-		}
-
-		else if (token->type == TYPE) {
-			if (i + 4 >= len) {
-				fprintf(stderr, 
-						"Missing tokens after statement. :%i\n", 
-						token->line);
-				continue;
-			}
-
-			if (tokens[i + 1]->type == FUNC_NAME) {
-				// move to function name token
-				i++;
-				printf("Warning: functions not supported. :%i\n", token->line);
-				parse_function(parent, tokens, &i, len);
-			} 
-			else if (tokens[i + 1]->type == VARIABLE) {
-				// move to variable name token
-				i++;
-				parse_variable(parent, tokens, &i, len);
-			} 
-			else {
-				fprintf(stderr, 
-						"Unknown token after type specifier. :%i\n", 
-						token->line);
-			}
-		}
-
-		else if (token->type == VARIABLE) {
-			// x = 1;
-			// x = 1 + 2;
-			parse_variable(parent, tokens, &i, len);
-			parent->children[parent->len - 1].type = NODE_STATEMENT;
-		}
-
-		else {
-			fprintf(stderr, 
-					"Invalid token type (ignoring). :%i\n", 
-					token->line);
-		}
-	}
-
-	// update index for callee
-	*index = i;
-	*/
 }
 
 // parse entire program
-void parse(Node* root, Token** tokens, int len) {
-	parser_init(tokens, len);
+void parse(Node* root, const TokenArray tokens) {
+	parser_init(tokens);
 
 	while (parser_peek(0) != NULL) {
 		parse_node(root);
 	}
-
-	/*
-	for (int i = 0; i < len; i++) {
-		parse_node(root, tokens, &i, len);
-	}
-	*/
 }
 
-void free_tree(Node* root) {
-}
-
-void print_tree(Node* root) {
+void print_tree(const Node* root) {
+	printf("root length: %d\n", root->len);
 	for (int i = 0; i < root->len; i++) {
 		printf("node type: %d, token type: %d, :%i\n", 
 				root->children[i].type,
