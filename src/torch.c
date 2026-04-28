@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
 	printf("generated tokens\n");
 
 	Node root;
-	root.children = malloc(sizeof(Node) * NODE_ROOT_CHILDREN_COUNT);
+	root.children = arena_alloc(&arena, sizeof(Node) * NODE_ROOT_CHILDREN_COUNT);
 	root.len = 0;
 
 	parse(&root, tokens);

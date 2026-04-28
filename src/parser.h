@@ -64,7 +64,6 @@ void node_init(Node* node, Node* parent, NodeType type, Token* token, int childr
 	node->token = token;
 	node->len = 0;
 	if (children != 0) {
-		//node->children = malloc(sizeof(Node) * NODE_CHILDREN_COUNT);
 		node->children = arena_alloc(&arena, sizeof(Node) * children);
 	}
 }
@@ -79,15 +78,12 @@ void parse_expression(Node* parent) {
 		fprintf(stderr, 
 				"Expected variable or literal token. :%i\n", 
 				token->line);
+		arena_free(&arena);
 		exit(EXIT_FAILURE);  // leaks memory
 	}
 
 	// NOTE: children are not allocated for the expression node
 	node_init(node_expr, parent, NODE_EXPRESSION, token, 0);
-	/*node_expr->type = NODE_EXPRESSION;
-	node_expr->parent = parent;
-	node_expr->token = token;
-	node_expr->len = 0;*/
 
 	// consume expression token
 	parser_consume();
@@ -106,16 +102,12 @@ void parse_operator(Node* node) {
 			token->type != DIVIDE) {
 		fprintf(stderr, "Operator not supported '%s'.:%i\n", 
 				token->value, token->line);
+		arena_free(&arena);
 		exit(EXIT_FAILURE);
 	}
 
 	Node* node_op = &node->children[0];
 	node_init(node_op, node, NODE_OPERATOR, token, NODE_CHILDREN_COUNT);
-	/*node_op->type = NODE_OPERATOR;
-	node_op->parent = node;
-	node_op->token = token;
-	node_op->len = 0;
-	node_op->children = malloc(sizeof(Node) * NODE_CHILDREN_COUNT);*/
 
 	// parse_expression will consume semicolons and such
 	parse_expression(node_op);
@@ -126,6 +118,7 @@ void parse_operator(Node* node) {
 void parse_exit(Node* parent) {
 	if (parser_peek(2)->type != SEMICOLON) {
 		fprintf(stderr, "Expected semicolon after exit.\n");
+		arena_free(&arena);
 		exit(EXIT_FAILURE);
 	}
 
@@ -134,12 +127,6 @@ void parse_exit(Node* parent) {
 	// create exit node
 	Node* node_exit = &parent->children[parent->len++];
 	node_init(node_exit, parent, NODE_STATEMENT, token, NODE_CHILDREN_COUNT);
-	/*node_exit->type = NODE_STATEMENT;
-	node_exit->parent = parent;
-	node_exit->token = token;
-	node_exit->len = 0;
-	node_exit->children = malloc(sizeof(Node) * 
-			NODE_CHILDREN_COUNT);*/
 
 	// move to token after exit
 	parser_consume();
@@ -151,6 +138,7 @@ void parse_function_call(Node* parent) {
 			parser_peek(2)->type != PAREN_CLOSE &&
 			parser_peek(3)->type != SEMICOLON) {
 		fprintf(stderr, "Invalid syntax for function call.\n");
+		arena_free(&arena);
 		exit(EXIT_FAILURE);
 	}
 
@@ -159,12 +147,6 @@ void parse_function_call(Node* parent) {
 	// create call node
 	Node* node_call = &parent->children[parent->len++];
 	node_init(node_call, parent, NODE_CALL_FUNC, token, NODE_CHILDREN_COUNT);
-	/*node_call->type = NODE_CALL_FUNC;
-	node_call->parent = parent;
-	node_call->token = token;
-	node_call->len = 0;
-	node_call->children = malloc(sizeof(Node) * 
-			NODE_CHILDREN_COUNT);*/
 
 	parser_consume();
 	parser_consume();
@@ -177,12 +159,6 @@ void parse_variable(Node* parent) {
 	Token* token = parser_peek(0);
 	Node* node_stmt = &parent->children[parent->len++];
 	node_init(node_stmt, parent, NODE_DECLARATION, token, NODE_CHILDREN_COUNT);
-	/*node_stmt->type = NODE_DECLARATION;
-	node_stmt->parent = parent;
-	node_stmt->token = parser_peek(0);
-	node_stmt->len = 0;
-	node_stmt->children = malloc(sizeof(Node) * 
-			NODE_CHILDREN_COUNT);*/
 
 	if (parser_peek(3)->type == SEMICOLON) {
 		// consume variable name and equal sign
@@ -210,6 +186,7 @@ void parse_variable(Node* parent) {
 		fprintf(stderr, 
 				"Missing tokens after variable or misplaced ';'. :%i\n", 
 				parser_peek(0)->line);
+		arena_free(&arena);
 		exit(EXIT_FAILURE);
 	}
 }
@@ -222,11 +199,6 @@ void parse_function(Node* parent) {
 	Token* token = parser_peek(0);
 	Node* node_func = &parent->children[parent->len++];
 	node_init(node_func, parent, NODE_DECLARATION_FUNC, token, NODE_ROOT_CHILDREN_COUNT);
-	/*node_func->type = NODE_DECLARATION_FUNC;
-	node_func->parent = parent;
-	node_func->len = 0;
-	node_func->children = malloc(sizeof(Node) * NODE_CHILDREN_COUNT);
-	node_func->token = parser_peek(0);*/
 
 	// consume function name, parenthesis, open brace tokens
 	parser_consume();
@@ -240,6 +212,7 @@ void parse_function(Node* parent) {
 void parse_return(Node* parent) {
 	if (parser_peek(2)->type != SEMICOLON) {
 		fprintf(stderr, "Expected semicolon after return.\n");
+		arena_free(&arena);
 		exit(EXIT_FAILURE);
 	}
 
@@ -248,12 +221,6 @@ void parse_return(Node* parent) {
 	// create return node
 	Node* node_ret = &parent->children[parent->len++];
 	node_init(node_ret, parent, NODE_STATEMENT, token, NODE_CHILDREN_COUNT);
-	/*node_ret->type = NODE_STATEMENT;
-	node_ret->parent = parent;
-	node_ret->token = token;
-	node_ret->len = 0;
-	node_ret->children = malloc(sizeof(Node) * 
-			NODE_CHILDREN_COUNT);*/
 
 	parser_consume();
 	parse_expression(node_ret);

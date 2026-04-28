@@ -108,6 +108,7 @@ void token_init(const char* str, Token* token) {
 		for (int i = 1; i < strlen(str); i++) {
 			if (!isdigit(str[i])) {
 				printf("Invalid syntax. '%s' :%i\n", str, line);
+				arena_free(&arena);
 				exit(EXIT_FAILURE);  // leaks memory
 			}
 		}
@@ -147,8 +148,6 @@ void add_token(TokenArray* tokens, const char* buffer) {
 	strcpy(buf, buffer);
 	
 	while (isspace(*buf)) { buf++; offset--; };
-
-	//printf("aaaaa : '%s' %zu\n", buf, strlen(buf));
 
 	Token token;
 	token_init(buf, &token);
