@@ -3,6 +3,7 @@
 #include <string.h>
 #include <ctype.h>
 
+#define LUMEN_ARENA_IMPLEMENTATION
 #include "arena.h"
 
 #define TOKEN_DEFAULT_COUNT 256
@@ -67,7 +68,7 @@ void token_print(const Token* token) {
 	} else if (token->type == INT_LITERAL) {
 		printf("'int_lit'");
 	} else {
-		printf("'???'");
+		printf("'balls'");
 	}
 	if (token->has_value) {
 		printf(", '%s'", token->value);
