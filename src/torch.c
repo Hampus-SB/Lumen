@@ -32,11 +32,9 @@ int main(int argc, char** argv) {
 	tokens.tokens = arena_alloc(&arena, tokens.capacity * sizeof(Token));
 
 	tokens_from_source(file, &tokens);
-
 	for (int i = 0; i < tokens.count; i++) {
-		token_print(&tokens.tokens[i]);
+		//token_print(&tokens.tokens[i]);
 	}
-
 	printf("generated tokens\n");
 
 	Node root;
@@ -44,17 +42,20 @@ int main(int argc, char** argv) {
 	root.len = 0;
 
 	parse(&root, tokens);
-
+	//print_tree(&root.children[0].children[0]);
 	printf("parsed ast\n");
-	
-	generate_asm(&root, "build/a.asm");
 
+	if (!validate_types(&root)) {
+		fprintf(stderr, "failed to validate types\n");
+	}
+	printf("validated types\n");
+
+	generate_asm(&root, "build/a.asm");
 	printf("generated assembly\n");
 
 	system("nasm -felf64 build/a.asm");
 	system("ld build/a.o -o a.out");
 
 	arena_free(&arena);
-
 	return 0;
 }

@@ -1,4 +1,4 @@
-#include "parser.h"
+#include "type_checker.h"
 
 #define STACK_SIZE 64
 #define VARIABLE_NAME_SIZE 64
@@ -6,7 +6,8 @@
 
 typedef struct {
 	char name[VARIABLE_NAME_SIZE];
-	int offset;  // offset from rbp 
+	int offset;  // offset from rbp
+	Type type;
 } Variable;
 
 typedef struct {
@@ -207,6 +208,8 @@ void generate_statement(FILE* fh, Node* node) {
 
 			break;
 		case VARIABLE:
+			printf("||| %d\n", node->children[0].type);
+
 			if (!node->token->has_value) {
 				fprintf(stderr, 
 						"Variable token does not have a value. %i\n", 
@@ -221,6 +224,7 @@ void generate_statement(FILE* fh, Node* node) {
 				// adds variable to compiler stack
 				strcpy(stack.variables[stack.index].name, 
 						node->token->value);
+
 				stack.variables[stack.index].offset = 
 					(stack.count[stack._index] + 1) * 8;
 			}
