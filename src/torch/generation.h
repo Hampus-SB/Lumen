@@ -344,9 +344,10 @@ void generate_asm(const Node* root, const char* out_path) {
 
 	// call main
 	fprintf(fh, "\tcall main\n");
-	
-	fprintf(fh, "\n\tmov rax, 60\n");
-	fprintf(fh, "\tmov rdi, 0\n");
+
+	fprintf(fh, "\n\tmov rbx, rax\n");
+	fprintf(fh, "\tmov rax, 60\n");
+	fprintf(fh, "\tmov rdi, rbx\n");
 	fprintf(fh, "\tsyscall\n");
 
 	fclose(fh);
