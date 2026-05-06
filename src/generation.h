@@ -33,6 +33,38 @@ void pop(FILE* fh, const char* reg) {
 	stack.count[stack._index]--;
 }
 
+void get_register(const Node* node, char* reg, const int count) {
+	const Type type = node->_type;
+	if (type == I8 || type == UI8) {
+		if (count == 1) {
+			strcpy(reg, "al");
+		} else {
+			strcpy(reg, "bl");
+		}
+	}
+	if (type == I16 || type == UI16) {
+		if (count == 1) {
+			strcpy(reg, "ax");
+		} else {
+			strcpy(reg, "bx");
+		}
+	}
+	if (type == I32 || type == UI32) {
+		if (count == 1) {
+			strcpy(reg, "eax");
+		} else {
+			strcpy(reg, "ebx");
+		}
+	}
+	if (type == I64 || type == UI64) {
+		if (count == 1) {
+			strcpy(reg, "rax");
+		} else {
+			strcpy(reg, "rbx");
+		}
+	}
+}
+
 // pushes a variable to the top of the stack
 // returns the variable offset
 int fetch_variable(FILE* fh, Node* node) {
@@ -63,6 +95,26 @@ int fetch_variable(FILE* fh, Node* node) {
 	return offset;
 }
 
+// returns the variable offset from rbp
+int get_variable_offset(const Node* node) {
+	int offset = -1;
+
+	for (int i = 0; i <= stack.index; i++) {
+		if (strcmp(stack.variables[i].name,
+					node->token->value) == 0) {
+			offset = stack.variables[i].offset;
+			return offset;
+		}
+	}
+
+	fprintf(stderr,
+			"Variable name does not exist.. '%s' :%i\n",
+			node->token->value,
+			node->token->line);
+
+	return offset;
+}
+
 // an expression is either a literal or a variable
 // put value in stack
 void generate_expression(FILE* fh, Node* node) {
@@ -78,13 +130,18 @@ void generate_expression(FILE* fh, Node* node) {
 
 	switch (node->token->type) {
 		case INT_LITERAL:
-			fprintf(fh, "\tmov rax, %s\n", node->token->value);
-			push(fh, "rax");
-			break;
+			// ensure padding bits are 0
+			fprintf(fh, "\tmov rax, 0\n");
 
+			char reg[4];
+			get_register(node->parent, reg, 1);
+			fprintf(fh, "\tmov %s, %s\n", reg, node->token->value);
+			push(fh, "rax");
+
+			break;
 		case VARIABLE:
 			// push variable to stack
-			int offset = fetch_variable(fh, node);
+			const int offset = fetch_variable(fh, node);
 			
 			// move variable into destination
 			if (node->parent->token->type == VARIABLE && 
@@ -92,8 +149,8 @@ void generate_expression(FILE* fh, Node* node) {
 				pop(fh, "rax");
 				fprintf(fh, "\tmov [rbp - %i], rax\n", offset);
 			}
-			break;
 
+			break;
 		default:
 			fprintf(stderr, "Node type unsupported.\n");
 			break;
@@ -116,24 +173,26 @@ void generate_operator(FILE* fh, Node* node) {
 	pop(fh, "rbx");
 	pop(fh, "rax");
 
+	char reg1[4];
+	char reg2[4];
+	get_register(node, reg1, 1);
+	get_register(node, reg2, 2);
+
+	// handle idiv and imul
 	if (node->token->type == ADD)
-		fprintf(fh, "\tadd rax, rbx\n");
+		fprintf(fh, "\tadd %s, %s\n", reg1, reg2);
 	else if (node->token->type == SUBTRACT)
-		fprintf(fh, "\tsub rax, rbx\n");
+		fprintf(fh, "\tsub %s, %s\n", reg1, reg2);
 	else if (node->token->type == MULTIPLY)
-		fprintf(fh, "\tmul rax, rbx\n");
+		fprintf(fh, "\tmul %s, %s\n", reg1, reg2);
 	else if (node->token->type == DIVIDE)
-		fprintf(fh, "\tdiv rax, rbx\n");
+		fprintf(fh, "\tdiv %s, %s\n", reg1, reg2);
 	else
 		fprintf(stderr, "Bowser Jr. :%i\n", 
 				node->token->line);
 
-
-	int offset = fetch_variable(fh, node->parent);
+	const int offset = get_variable_offset(node->parent);
 	fprintf(fh, "\tmov [rbp - %i], rax\n", offset);
-	
-	// fetch_variable pushes to stack but we dont want that here
-	pop(fh, "rax");
 }
 
 void generate_statement(FILE*, Node*);
@@ -152,13 +211,6 @@ void generate_function(FILE* fh, Node* node) {
 	fprintf(fh, "\tmov rbp, rsp\n\n");
 
 	for (int i = 0; i < node->len; i++) {
-		if (node->type != NODE_STATEMENT && node->type != NODE_DECLARATION && 
-				node->type != NODE_DECLARATION_FUNC) {
-			fprintf(stderr, "Node in root is not a valid type. :%i\n", 
-					node->token->line);
-			return;
-		}
-
 		generate_statement(fh, &node->children[i]);
 	}
 
@@ -183,6 +235,7 @@ void generate_return(FILE* fh, Node* node) {
 	fprintf(fh, "\n");
 	
 	generate_expression(fh, &node->children[0]);
+
 	pop(fh, "rax");
 }
 
@@ -195,7 +248,7 @@ void generate_function_call(FILE* fh, Node* node) {
 	fprintf(fh, "\tcall %s\n", node->token->value);
 
 	if (node->parent->token->type == VARIABLE) {
-		int offset = fetch_variable(fh, node->parent);
+		const int offset = fetch_variable(fh, node->parent);
 		pop(fh, "rbx");  // we dont want variable on stack
 		fprintf(fh, "\tmov [rbp - %i], rax\n", offset);
 	}
@@ -224,9 +277,11 @@ void generate_statement(FILE* fh, Node* node) {
 				// adds variable to compiler stack
 				strcpy(stack.variables[stack.index].name, 
 						node->token->value);
-
 				stack.variables[stack.index].offset = 
 					(stack.count[stack._index] + 1) * 8;
+
+				// ensure padding bits are 0
+				//fprintf(fh, "\tmov rax, 0\n");
 			}
 
 			if (node->children[0].type == NODE_EXPRESSION) {
@@ -260,7 +315,7 @@ void generate_statement(FILE* fh, Node* node) {
 	}
 }
 
-void generate_asm(Node* root, const char* out_path) {
+void generate_asm(const Node* root, const char* out_path) {
 	FILE* fh = fopen(out_path, "w");
 	if (fh == NULL) {
 		fprintf(stderr, "Failed to create output file.\n");

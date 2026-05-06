@@ -175,8 +175,10 @@ void parse_operator(Node* node) {
 		exit(EXIT_FAILURE);
 	}
 
+	// type same as parent
+	const Type type = names_get_type(node->token->value);
 	Node* node_op = &node->children[0];
-	node_init(node_op, node, NODE_OPERATOR, token, NODE_CHILDREN_COUNT, NO_TYPE);
+	node_init(node_op, node, NODE_OPERATOR, token, NODE_CHILDREN_COUNT, type);
 
 	// parse_expression will consume semicolons and such
 	parse_expression(node_op);

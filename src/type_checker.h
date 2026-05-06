@@ -23,6 +23,10 @@ int validate_node(const Node* node) {
                 }
             }
             return 1;
+        case NODE_OPERATOR:
+            const int a = validate_compare_nodes(&node->children[0], &node->children[1]);
+            const int b = validate_compare_nodes(node, &node->children[0]);
+            return a == 1 && b == 1;
         default:
             break;
     }
