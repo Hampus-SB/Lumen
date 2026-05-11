@@ -248,21 +248,23 @@ void generate_statement(FILE* fh, const Node* node) {
 				stack.variables[stack.index].offset =
 					(stack.count[stack._index] + 1) * 8;
 
-				//fprintf(fh, "\tmov rax, 0\n");
-				push(fh, "rax");
+				//push(fh, "rax");
+				fprintf(fh, "\tsub rsp, 8\n");
+				stack.index++;
+				stack.count[stack._index]++;
 
 				for (int i = 0; i <= stack.index; i++) {
 					printf("name: '%s'\n", stack.variables[i].name);
 				}
 			}
 
-			const int offset = get_variable_offset(node);
-			char reg[32] = {};
-			strcat(reg, "[rbp - ");
-			sprintf(reg + strlen(reg), "%i", offset);
-			strcat(reg, "]");
-
 			if (node->children[0].type == NODE_EXPRESSION) {
+				const int offset = get_variable_offset(node);
+				char reg[32] = {};
+				strcat(reg, "[rbp - ");
+				sprintf(reg + strlen(reg), "%i", offset);
+				strcat(reg, "]");
+
 				if (node->type == NODE_DECLARATION) {
 					generate_expression(fh, &node->children[0], "rax");
 					fprintf(fh, "\tmov %s, rax\n", reg);
