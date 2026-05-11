@@ -67,7 +67,7 @@ void get_register(const Node* node, char* reg, const int count) {
 
 // pushes a variable to the top of the stack
 // returns the variable offset
-int fetch_variable(FILE* fh, Node* node) {
+int fetch_variable(FILE* fh, const Node* node) {
 	int offset = -1;
 
 	int match = 0;
@@ -116,8 +116,8 @@ int get_variable_offset(const Node* node) {
 }
 
 // an expression is either a literal or a variable
-// put value in stack
-void generate_expression(FILE* fh, Node* node) {
+// puts value in register
+void generate_expression(FILE* fh, const Node* node, const char* reg) {
 	if (node->type != NODE_EXPRESSION) {
 		fprintf(stderr, "Expected expression node. :%i\n", 
 				node->token->line);
@@ -130,27 +130,14 @@ void generate_expression(FILE* fh, Node* node) {
 
 	switch (node->token->type) {
 		case INT_LITERAL:
-			// ensure padding bits are 0
-			fprintf(fh, "\tmov rax, 0\n");
-
-			char reg[4];
-			get_register(node->parent, reg, 1);
 			fprintf(fh, "\tmov %s, %s\n", reg, node->token->value);
-			push(fh, "rax");
 
 			break;
 		case VARIABLE:
-			// push variable to stack
-			const int offset = fetch_variable(fh, node);
-			
-			// move variable into destination
-			if (node->parent->token->type == VARIABLE && 
-					node->parent->type != NODE_DECLARATION) {
-				pop(fh, "rax");
-				fprintf(fh, "\tmov [rbp - %i], rax\n", offset);
-			}
-
+			const int offset = get_variable_offset(node);
+			fprintf(fh, "\tmov %s, [rbp - %i]\n", reg, offset);
 			break;
+
 		default:
 			fprintf(stderr, "Node type unsupported.\n");
 			break;
@@ -159,24 +146,15 @@ void generate_expression(FILE* fh, Node* node) {
 
 // takes in node with type operator
 // perform operation
-void generate_operator(FILE* fh, Node* node) {
-	if (node->parent->type == NODE_DECLARATION) {
-		// create variable on stack
-		fprintf(fh, "\tmov rax, 0\n");
-		push(fh, "rax");
-	}
-
-	// push both operands to the stack
-	generate_expression(fh, &node->children[0]);
-	generate_expression(fh, &node->children[1]);
-
-	pop(fh, "rbx");
-	pop(fh, "rax");
-
+void generate_operator(FILE* fh, const Node* node) {
 	char reg1[4];
 	char reg2[4];
 	get_register(node, reg1, 1);
 	get_register(node, reg2, 2);
+
+	// TODO: potentially grabs wrong bytes from variable target
+	generate_expression(fh, &node->children[0], reg1);
+	generate_expression(fh, &node->children[1], reg2);
 
 	// handle idiv and imul
 	if (node->token->type == ADD)
@@ -188,16 +166,16 @@ void generate_operator(FILE* fh, Node* node) {
 	else if (node->token->type == DIVIDE)
 		fprintf(fh, "\tdiv %s, %s\n", reg1, reg2);
 	else
-		fprintf(stderr, "Bowser Jr. :%i\n", 
+		fprintf(stderr, "Bowser Jr. :%i\n",
 				node->token->line);
 
 	const int offset = get_variable_offset(node->parent);
 	fprintf(fh, "\tmov [rbp - %i], rax\n", offset);
 }
 
-void generate_statement(FILE*, Node*);
+void generate_statement(FILE*, const Node*);
 
-void generate_function(FILE* fh, Node* node) {
+void generate_function(FILE* fh, const Node* node) {
 	if (node->type != NODE_DECLARATION_FUNC) {
 		fprintf(stderr, "Expected function declaration. :%i\n", 
 				node->token->line);
@@ -217,44 +195,34 @@ void generate_function(FILE* fh, Node* node) {
 	fprintf(fh, "\n\tmov rsp, rbp\n");
 	fprintf(fh, "\tpop rbp\n");
 	fprintf(fh, "\tret\n");
-
-	//stack._index--;
 }
 
-void generate_exit(FILE* fh, Node* node) {
+void generate_exit(FILE* fh, const Node* node) {
 	fprintf(fh, "\n");
 
-	generate_expression(fh, &node->children[0]);
+	generate_expression(fh, &node->children[0], "placeholder");
 
 	fprintf(fh, "\tmov rax, 60\n");
 	pop(fh, "rdi");
 	fprintf(fh, "\tsyscall\n");
 }
 
-void generate_return(FILE* fh, Node* node) {
+void generate_return(FILE* fh, const Node* node) {
 	fprintf(fh, "\n");
 	
-	generate_expression(fh, &node->children[0]);
-
-	pop(fh, "rax");
+	generate_expression(fh, &node->children[0], "rax");
 }
 
-void generate_function_call(FILE* fh, Node* node) {
-	if (node->parent->type == NODE_DECLARATION) {
-		fprintf(fh, "\tmov rax, 0\n");
-		push(fh, "rax");
-	}
-
+void generate_function_call(FILE* fh, const Node* node) {
 	fprintf(fh, "\tcall %s\n", node->token->value);
 
 	if (node->parent->token->type == VARIABLE) {
-		const int offset = fetch_variable(fh, node->parent);
-		pop(fh, "rbx");  // we dont want variable on stack
+		const int offset = get_variable_offset(node->parent);
 		fprintf(fh, "\tmov [rbp - %i], rax\n", offset);
 	}
 }
 
-void generate_statement(FILE* fh, Node* node) {
+void generate_statement(FILE* fh, const Node* node) {
 	switch (node->token->type) {
 		case EXIT:
 			generate_exit(fh, node);
@@ -271,25 +239,43 @@ void generate_statement(FILE* fh, Node* node) {
 			}
 
 			if (node->type == NODE_DECLARATION) {
-				printf("count: %i, '%s'\n", 
+				printf("count: %i, '%s'\n",
 						stack._index, node->token->value);
 
 				// adds variable to compiler stack
-				strcpy(stack.variables[stack.index].name, 
+				strcpy(stack.variables[stack.index].name,
 						node->token->value);
-				stack.variables[stack.index].offset = 
+				stack.variables[stack.index].offset =
 					(stack.count[stack._index] + 1) * 8;
 
-				// ensure padding bits are 0
 				//fprintf(fh, "\tmov rax, 0\n");
+				push(fh, "rax");
+
+				for (int i = 0; i <= stack.index; i++) {
+					printf("name: '%s'\n", stack.variables[i].name);
+				}
 			}
 
+			const int offset = get_variable_offset(node);
+			char reg[32] = {};
+			strcat(reg, "[rbp - ");
+			sprintf(reg + strlen(reg), "%i", offset);
+			strcat(reg, "]");
+
 			if (node->children[0].type == NODE_EXPRESSION) {
-				generate_expression(fh, &node->children[0]);
+				if (node->type == NODE_DECLARATION) {
+					generate_expression(fh, &node->children[0], "rax");
+					fprintf(fh, "\tmov %s, rax\n", reg);
+				} else {
+					generate_expression(fh, &node->children[0], reg);
+				}
+
 			} else if (node->children[0].type == NODE_OPERATOR) {
 				generate_operator(fh, &node->children[0]);
+
 			} else if (node->children[0].type == NODE_CALL_FUNC) {
 				generate_function_call(fh, &node->children[0]);
+
 			} else {
 				fprintf(stderr, "Major shitballs 2. :%i\n",
 						node->token->line);
