@@ -1,7 +1,7 @@
 #include "parser.h"
 
 int validate_compare_nodes(const Node* a, const Node* b) {
-    if (b->token->type == INT_LITERAL) {
+    if (b->token->type == TOK_INT_LITERAL) {
         return 1;
     }
     const int result = a->_type == b->_type;
@@ -14,6 +14,9 @@ int validate_compare_nodes(const Node* a, const Node* b) {
 int validate_node(const Node* node) {
     switch (node->type) {
         case NODE_DECLARATION:
+            if (node->len == 0) {
+                return 1;
+            }
             // check if both sides are of the same type
             return validate_compare_nodes(node, &node->children[0]);
         case NODE_DECLARATION_FUNC:
@@ -23,6 +26,11 @@ int validate_node(const Node* node) {
                 }
             }
             return 1;
+        case NODE_STATEMENT:
+            if (node->children[0].type == NODE_OPERATOR) {
+                return validate_node(&node->children[0]);
+            }
+            return validate_compare_nodes(node, &node->children[0]);
         case NODE_OPERATOR:
             const int a = validate_compare_nodes(&node->children[0], &node->children[1]);
             const int b = validate_compare_nodes(node, &node->children[0]);

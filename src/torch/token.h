@@ -11,33 +11,37 @@
 
 #define FUNCTION_SPECIAL '#'
 
+#define MAX_STRUCT_COUNT 32
+
 // the index need to match the TokenType enum
 const char* keywords[] = {
 	"=", "+", "-", "*", "/",
-	"(", ")", "{", "}",
-	";", "return", "exit",
+	"(", ")", "{", "}", ".",
+	";", "return", "exit", "struct",
 	"i64", "i32", "i16", "i8",
 	"ui64", "ui32", "ui16", "ui8",
 };
 
 typedef enum {
-	EQUALS,
-	ADD,
-	SUBTRACT,
-	MULTIPLY,
-	DIVIDE,
-	PAREN_OPEN,
-	PAREN_CLOSE,
-	BRACE_OPEN,
-	BRACE_CLOSE,
-	SEMICOLON,
-	RETURN,
-	EXIT,
-	TYPE,
+	TOK_EQUALS,
+	TOK_ADD,
+	TOK_SUBTRACT,
+	TOK_MULTIPLY,
+	TOK_DIVIDE,
+	TOK_PAREN_OPEN,
+	TOK_PAREN_CLOSE,
+	TOK_BRACE_OPEN,
+	TOK_BRACE_CLOSE,
+	TOK_PERIOD,
+	TOK_SEMICOLON,
+	TOK_RETURN,
+	TOK_EXIT,
+	TOK_STRUCT,
+	TOK_TYPE,
 
-	VARIABLE,
-	FUNC_NAME,
-	INT_LITERAL,
+	TOK_VARIABLE,
+	TOK_FUNC_NAME,
+	TOK_INT_LITERAL,
 } TokenType;
 
 typedef struct {
@@ -55,17 +59,32 @@ typedef struct {
 
 int line;
 
+typedef struct {
+	char names[MAX_STRUCT_COUNT][TOKEN_BUFFER_SIZE];
+	int i;
+} Structs;
+
+Structs structs;
+
+void add_struct(const char* name) {
+	if (structs.i >= MAX_STRUCT_COUNT) {
+		fprintf(stderr, "Too many struct declarations.\n");
+		return;
+	}
+	strcpy(structs.names[structs.i++], name);
+}
+
 void token_print(const Token* token) {
 	printf("token: ");
-	if (token->type < 12) {
+	if (token->type < 14) {
 		printf("'%s'", keywords[token->type]);
-	} else if (token->type == TYPE) {
+	} else if (token->type == TOK_TYPE) {
 		printf("'type'");
-	}else if (token->type == VARIABLE) {
+	}else if (token->type == TOK_VARIABLE) {
 		printf("'variable'");
-	} else if (token->type == FUNC_NAME) {
+	} else if (token->type == TOK_FUNC_NAME) {
 		printf("'func_name'");
-	} else if (token->type == INT_LITERAL) {
+	} else if (token->type == TOK_INT_LITERAL) {
 		printf("'int_lit'");
 	} else {
 		printf("'balls'");
@@ -84,17 +103,26 @@ void token_append(TokenArray* tokens, const Token* token) {
 	tokens->tokens[tokens->count++] = *token;
 }
 
-void token_init(const char* str, Token* token) {
+void token_init(const char* str, Token* token, TokenArray* tokens) {
 	token->has_value = 0;  // default to false
 	token->line = line;
 
-	for (int i = 0; i < 20; i++) {
+	for (int i = 0; i < structs.i; i++) {
+		if (strcmp(structs.names[i], str) == 0) {
+			token->has_value = 1;
+			strncpy(token->value, structs.names[i], TOKEN_BUFFER_SIZE);
+			token->type = TOK_TYPE;
+			return;
+		}
+	}
+
+	for (int i = 0; i < 22; i++) {
 		if (strcmp(str, keywords[i]) == 0) {
 			// matches against a type
-			if (i >= 12) {
+			if (i >= 14) {
 				token->has_value = 1;
 				strncpy(token->value, keywords[i], TOKEN_BUFFER_SIZE);
-				token->type = TYPE;
+				token->type = TOK_TYPE;
 				return;
 			}
 			token->type = i;
@@ -103,7 +131,7 @@ void token_init(const char* str, Token* token) {
 	}
 
 	// determine if type is a literal or a variable name
-	// or function name
+	// or function name or struct name
 	int int_lit = 0;
 	if (isdigit(str[0])) {
 		for (int i = 1; i < strlen(str); i++) {
@@ -118,20 +146,25 @@ void token_init(const char* str, Token* token) {
 
 	token->has_value = 1;
 
-	if (int_lit) {
-		token->type = INT_LITERAL;
-	} else {
-		if (str[strlen(str) - 1] == FUNCTION_SPECIAL) {
-			token->type = FUNC_NAME;
+	if (tokens->tokens[tokens->count - 1].type == TOK_STRUCT) {
+		token->type = TOK_TYPE;
+		add_struct(str);
+	}
+	else if (int_lit) {
+		token->type = TOK_INT_LITERAL;
+	}
+	else if (str[strlen(str) - 1] == FUNCTION_SPECIAL) {
+		token->type = TOK_FUNC_NAME;
 
-			char s[TOKEN_BUFFER_SIZE];
-			strcpy(s, str);
-			s[strlen(s) - 1] = '\0';
+		char s[TOKEN_BUFFER_SIZE];
+		strcpy(s, str);
+		s[strlen(s) - 1] = '\0';
 
-			strcpy(token->value, s);
-			return;
-		}
-		token->type = VARIABLE;
+		strcpy(token->value, s);
+		return;
+	}
+	else {
+		token->type = TOK_VARIABLE;
 	}
 
 	// store the token value as a string
@@ -151,7 +184,7 @@ void add_token(TokenArray* tokens, const char* buffer) {
 	while (isspace(*buf)) { buf++; offset--; };
 
 	Token token;
-	token_init(buf, &token);
+	token_init(buf, &token, tokens);
 	token_append(tokens, &token);
 
 	free(buf + offset);
@@ -221,6 +254,17 @@ void tokens_from_source(const char* src, TokenArray* tokens) {
 			// add the ) token
 			add_token(tokens, ")");
 		}
+		/*
+		else if (c == '.') {
+			// add token thats currently in buffer
+			add_token(tokens, buffer);
+			memset(buffer, 0, TOKEN_BUFFER_SIZE);
+			idx_buf = 0;
+
+			// add the ) token
+			add_token(tokens, ".");
+		}
+		*/
 		else if (c == ' ') {
 			// add token from buffer
 			add_token(tokens, buffer);

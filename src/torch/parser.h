@@ -1,7 +1,7 @@
 #include "token.h"
 
 #define NODE_CHILDREN_COUNT 8
-#define NODE_ROOT_CHILDREN_COUNT 64
+#define NODE_ROOT_CHILDREN_COUNT 512
 
 typedef enum {
 	NODE_DECLARATION,  // variable declaration
@@ -10,6 +10,7 @@ typedef enum {
 	NODE_OPERATOR,
 	NODE_DECLARATION_FUNC,
 	NODE_CALL_FUNC,
+	NODE_STRUCT,
 } NodeType;
 
 typedef enum {
@@ -22,6 +23,38 @@ typedef enum {
 	UI16,
 	UI32,
 	UI64,
+	STRUCT1,
+	STRUCT2,
+	STRUCT3,
+	STRUCT4,
+	STRUCT5,
+	STRUCT6,
+	STRUCT7,
+	STRUCT8,
+	STRUCT9,
+	STRUCT10,
+	STRUCT11,
+	STRUCT12,
+	STRUCT13,
+	STRUCT14,
+	STRUCT15,
+	STRUCT16,
+	STRUCT17,
+	STRUCT18,
+	STRUCT19,
+	STRUCT20,
+	STRUCT21,
+	STRUCT22,
+	STRUCT23,
+	STRUCT24,
+	STRUCT25,
+	STRUCT26,
+	STRUCT27,
+	STRUCT28,
+	STRUCT29,
+	STRUCT30,
+	STRUCT31,
+	STRUCT32,
 } Type;
 
 typedef struct Node {
@@ -31,7 +64,7 @@ typedef struct Node {
 	int len;  // how many children
 	
 	Token* token;
-	Type _type;  // NULL if the node does not have an associated type
+	Type _type;  // NO_TYPE if the node does not have an associated type
 } Node;
 
 typedef struct {
@@ -51,8 +84,13 @@ typedef struct {
 	int i;
 	// int scope;
 } NameTracker;
-
 NameTracker names;
+
+typedef struct {
+	const Node* nodes[MAX_STRUCT_COUNT];
+	int i;
+} StructTracker;
+StructTracker struct_tracker;
 
 void parser_init(const TokenArray tokens) {
 	parser.tokens = tokens;
@@ -82,7 +120,8 @@ Token* parser_consume() {
 	return &parser.tokens.tokens[parser.i++];
 }
 
-void names_add(const char* name, Type type) {
+void names_add(const char* name, const Type type) {
+	printf("PARSER: added name '%s'\n", name);
 	strcpy(names.names[names.i].name, name);
 	names.names[names.i].type = type;
 	names.i++;
@@ -95,7 +134,7 @@ Type names_get_type(const char* name) {
 			return names.names[i].type;
 		}
 	}
-	fprintf(stderr, "Failed to fetch type of name.\n");
+	fprintf(stderr, "Failed to fetch type of name. '%s'\n", name);
 	return NO_TYPE;
 }
 
@@ -126,9 +165,18 @@ Type type_lookup(const Token* token) {
 	if (strcmp(type, "ui16") == 0) return UI16;
 	if (strcmp(type, "ui32") == 0) return UI32;
 	if (strcmp(type, "ui64") == 0) return UI64;
+	for (int i = 0; i < structs.i; i++) {
+		if (strcmp(type, structs.names[i]) == 0) {
+			return STRUCT1 + i;
+		}
+	}
 
 	fprintf(stderr,  "Error looking up type. '%s'\n", token->value);
 	return NO_TYPE;
+}
+
+void add_struct_nodes(const Node* node) {
+	struct_tracker.nodes[struct_tracker.i++] = node;
 }
 
 // create expression child node for 'parent'
@@ -136,8 +184,8 @@ void parse_expression(Node* parent) {
 	Node* node_expr = &parent->children[parent->len++];
 	
 	Token* token = parser_peek(0);
-	if (token->type != VARIABLE && 
-			token->type != INT_LITERAL) {
+	if (token->type != TOK_VARIABLE &&
+			token->type != TOK_INT_LITERAL) {
 		fprintf(stderr, 
 				"Expected variable or literal token. :%i\n", 
 				token->line);
@@ -147,7 +195,7 @@ void parse_expression(Node* parent) {
 
 	// if int literal keep as I64
 	Type type = I64;
-	if (token->type == VARIABLE) {
+	if (token->type == TOK_VARIABLE) {
 		type = names_get_type(token->value);
 	}
 
@@ -165,10 +213,10 @@ void parse_expression(Node* parent) {
 void parse_operator(Node* node) {
 	Token* token = parser_peek(1);
 
-	if (token->type != ADD &&
-			token->type != SUBTRACT &&
-			token->type != MULTIPLY &&
-			token->type != DIVIDE) {
+	if (token->type != TOK_ADD &&
+			token->type != TOK_SUBTRACT &&
+			token->type != TOK_MULTIPLY &&
+			token->type != TOK_DIVIDE) {
 		fprintf(stderr, "Operator not supported '%s'.:%i\n", 
 				token->value, token->line);
 		arena_free(&arena);
@@ -187,7 +235,7 @@ void parse_operator(Node* node) {
 
 // i is at exit token
 void parse_exit(Node* parent) {
-	if (parser_peek(2)->type != SEMICOLON) {
+	if (parser_peek(2)->type != TOK_SEMICOLON) {
 		fprintf(stderr, "Expected semicolon after exit.\n");
 		arena_free(&arena);
 		exit(EXIT_FAILURE);
@@ -205,9 +253,9 @@ void parse_exit(Node* parent) {
 }
 
 void parse_function_call(Node* parent) {
-	if (parser_peek(1)->type != PAREN_OPEN && 
-			parser_peek(2)->type != PAREN_CLOSE &&
-			parser_peek(3)->type != SEMICOLON) {
+	if (parser_peek(1)->type != TOK_PAREN_OPEN &&
+			parser_peek(2)->type != TOK_PAREN_CLOSE &&
+			parser_peek(3)->type != TOK_SEMICOLON) {
 		fprintf(stderr, "Invalid syntax for function call.\n");
 		arena_free(&arena);
 		exit(EXIT_FAILURE);
@@ -236,19 +284,49 @@ void parse_variable_declaration(Node* parent) {
 	parser_consume();
 	Token* token_name = parser_peek(0);
 
-	names_add(token_name->value, type);
+	if (parent->type != NODE_STRUCT) {
+		names_add(token_name->value, type);
+	}
 
 	Node* node_stmt = &parent->children[parent->len++];
 	node_init(node_stmt, parent, NODE_DECLARATION, token_name, NODE_CHILDREN_COUNT, type);
 
-	if (parser_peek(3)->type == SEMICOLON) {
+	// yes boss man
+	if (type >= STRUCT1) {
+		for (int i = 0; i < struct_tracker.i; i++) {
+			if (type_lookup(struct_tracker.nodes[i]->token), type) {
+				const Node* struct_node = struct_tracker.nodes[i];
+
+				for (int j = 0; j < struct_node->len; j++) {
+					const Token* member_token = struct_node->children[j].token;
+					const Type member_type = struct_node->children[j]._type;
+
+					char temp[32] = {};
+					sprintf(temp, "%s.%s", token_name->value, member_token->value);
+					names_add(temp, member_type);
+				}
+			}
+		}
+
+		// consume name and semicolon
+		parser_consume();
+		parser_consume();
+		return;
+	}
+
+	if (parser_peek(1)->type == TOK_SEMICOLON) {
+		// consume name and semicolon
+		parser_consume();
+		parser_consume();
+	}
+	else if (parser_peek(3)->type == TOK_SEMICOLON) {
 		// consume variable name and equal sign
 		parser_consume();
 		parser_consume();
 
 		parse_expression(node_stmt);
 	}
-	else if (parser_peek(3)->type == PAREN_OPEN) {
+	else if (parser_peek(3)->type == TOK_PAREN_OPEN) {
 		// consume variable name and equal sign
 		parser_consume();
 		parser_consume();
@@ -256,7 +334,7 @@ void parse_variable_declaration(Node* parent) {
 		// parse for function return value
 		parse_function_call(node_stmt);
 	}
-	else if (parser_peek(5)->type == SEMICOLON) {
+	else if (parser_peek(5)->type == TOK_SEMICOLON) {
 		// consume variable name and equal sign
 		parser_consume();
 		parser_consume();
@@ -280,14 +358,14 @@ void parse_variable(Node* parent) {
 	Node* node_stmt = &parent->children[parent->len++];
 	node_init(node_stmt, parent, NODE_STATEMENT, token, NODE_CHILDREN_COUNT, type);
 
-	if (parser_peek(3)->type == SEMICOLON) {
+	if (parser_peek(3)->type == TOK_SEMICOLON) {
 		// consume variable name and equal sign
 		parser_consume();
 		parser_consume();
 
 		parse_expression(node_stmt);
 	}
-	else if (parser_peek(3)->type == PAREN_OPEN) {
+	else if (parser_peek(3)->type == TOK_PAREN_OPEN) {
 		// consume variable name and equal sign
 		parser_consume();
 		parser_consume();
@@ -295,7 +373,7 @@ void parse_variable(Node* parent) {
 		// parse for function return value
 		parse_function_call(node_stmt);
 	}
-	else if (parser_peek(5)->type == SEMICOLON) {
+	else if (parser_peek(5)->type == TOK_SEMICOLON) {
 		// consume variable name and equal sign
 		parser_consume();
 		parser_consume();
@@ -338,7 +416,7 @@ void parse_function_declaration(Node* parent) {
 }
 
 void parse_return(Node* parent) {
-	if (parser_peek(2)->type != SEMICOLON) {
+	if (parser_peek(2)->type != TOK_SEMICOLON) {
 		fprintf(stderr, "Expected semicolon after return.\n");
 		arena_free(&arena);
 		exit(EXIT_FAILURE);
@@ -354,30 +432,53 @@ void parse_return(Node* parent) {
 	parse_expression(node_ret);
 }
 
-// parse for children of one depth (kindof)
+void parse_struct(Node* parent) {
+	Token* token_type = parser_peek(1);
+	parser_consume();
+	parser_consume();
+
+	Node* node_struct = &parent->children[parent->len++];
+	node_init(node_struct, parent, NODE_STRUCT, token_type, NODE_ROOT_CHILDREN_COUNT, NO_TYPE);
+
+	const Type type = type_lookup(token_type);
+	names_add(token_type->value, type);
+
+	// open brace
+	parser_consume();
+
+	parse_node(node_struct);
+
+	add_struct_nodes(node_struct);
+}
+
+// parse for children of one depth (kind of)
 void parse_node(Node* parent) {
 	Token* token = parser_peek(0);
 
 	while (token != NULL) {
-		if (token->type == BRACE_CLOSE) {
+		if (token->type == TOK_BRACE_CLOSE) {
 			// this means
 			parser_consume();
 			return;
 		}
 
-		if (token->type == EXIT) {
+		if (token->type == TOK_EXIT) {
 			parse_exit(parent);
 		}
 
-		else if (token->type == FUNC_NAME) {
+		else if (token->type == TOK_FUNC_NAME) {
 			parse_function_call(parent);
 		}
 
-		else if (token->type == TYPE) {
-			if (parser_peek(1)->type == FUNC_NAME) {
+		else if (token->type == TOK_STRUCT) {
+			parse_struct(parent);
+		}
+
+		else if (token->type == TOK_TYPE) {
+			if (parser_peek(1)->type == TOK_FUNC_NAME) {
 				parse_function_declaration(parent);
 			}
-			else if (parser_peek(1)->type == VARIABLE) {
+			else if (parser_peek(1)->type == TOK_VARIABLE) {
 				parse_variable_declaration(parent);
 			}
 			else {
@@ -387,17 +488,18 @@ void parse_node(Node* parent) {
 			}
 		}
 
-		else if (token->type == VARIABLE) {
+		else if (token->type == TOK_VARIABLE) {
 			parse_variable(parent);
 		}
 
-		else if (token->type == RETURN) {
+		else if (token->type == TOK_RETURN) {
 			parse_return(parent);
 		}
 		
 		else {
 			fprintf(stderr, 
-					"Invalid token type (ignoring). :%i\n", 
+					"Invalid token type (ignoring). '%d' :%i\n",
+					token->type,
 					token->line);
 		}
 

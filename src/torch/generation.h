@@ -1,12 +1,13 @@
 #include "type_checker.h"
 
 #define STACK_SIZE 64
-#define VARIABLE_NAME_SIZE 64
+#define VARIABLE_NAME_SIZE 32
 #define MAX_FUNCTIONS 1024
 
 typedef struct {
 	char name[VARIABLE_NAME_SIZE];
 	int offset;  // offset from rbp
+	int size;  // size on stack in bytes
 	Type type;
 } Variable;
 
@@ -67,7 +68,7 @@ void get_register(const Node* node, char* reg, const int count) {
 
 // pushes a variable to the top of the stack
 // returns the variable offset
-int fetch_variable(FILE* fh, const Node* node) {
+/*int fetch_variable(FILE* fh, const Node* node) {
 	int offset = -1;
 
 	int match = 0;
@@ -93,7 +94,7 @@ int fetch_variable(FILE* fh, const Node* node) {
 	}
 
 	return offset;
-}
+}*/
 
 // returns the variable offset from rbp
 int get_variable_offset(const Node* node) {
@@ -129,13 +130,18 @@ void generate_expression(FILE* fh, const Node* node, const char* reg) {
 	}
 
 	switch (node->token->type) {
-		case INT_LITERAL:
+		case TOK_INT_LITERAL:
 			fprintf(fh, "\tmov %s, %s\n", reg, node->token->value);
 
 			break;
-		case VARIABLE:
+		case TOK_VARIABLE:
 			const int offset = get_variable_offset(node);
-			fprintf(fh, "\tmov %s, [rbp - %i]\n", reg, offset);
+			if (reg[0] == '[') {
+				fprintf(fh, "\tmov rax, [rbp - %i]\n", offset);
+				fprintf(fh, "\tmov %s, rax\n", reg);
+			} else {
+				fprintf(fh, "\tmov %s, [rbp - %i]\n", reg, offset);
+			}
 			break;
 
 		default:
@@ -157,13 +163,13 @@ void generate_operator(FILE* fh, const Node* node) {
 	generate_expression(fh, &node->children[1], reg2);
 
 	// handle idiv and imul
-	if (node->token->type == ADD)
+	if (node->token->type == TOK_ADD)
 		fprintf(fh, "\tadd %s, %s\n", reg1, reg2);
-	else if (node->token->type == SUBTRACT)
+	else if (node->token->type == TOK_SUBTRACT)
 		fprintf(fh, "\tsub %s, %s\n", reg1, reg2);
-	else if (node->token->type == MULTIPLY)
+	else if (node->token->type == TOK_MULTIPLY)
 		fprintf(fh, "\tmul %s, %s\n", reg1, reg2);
-	else if (node->token->type == DIVIDE)
+	else if (node->token->type == TOK_DIVIDE)
 		fprintf(fh, "\tdiv %s, %s\n", reg1, reg2);
 	else
 		fprintf(stderr, "Bowser Jr. :%i\n",
@@ -200,10 +206,9 @@ void generate_function(FILE* fh, const Node* node) {
 void generate_exit(FILE* fh, const Node* node) {
 	fprintf(fh, "\n");
 
-	generate_expression(fh, &node->children[0], "placeholder");
+	generate_expression(fh, &node->children[0], "rdi");
 
 	fprintf(fh, "\tmov rax, 60\n");
-	pop(fh, "rdi");
 	fprintf(fh, "\tsyscall\n");
 }
 
@@ -216,21 +221,58 @@ void generate_return(FILE* fh, const Node* node) {
 void generate_function_call(FILE* fh, const Node* node) {
 	fprintf(fh, "\tcall %s\n", node->token->value);
 
-	if (node->parent->token->type == VARIABLE) {
+	if (node->parent->token->type == TOK_VARIABLE) {
 		const int offset = get_variable_offset(node->parent);
 		fprintf(fh, "\tmov [rbp - %i], rax\n", offset);
 	}
 }
 
+void generate_struct(FILE*fh, const Node* node) {
+	int previous_offset = 0;
+	if (stack.count[stack._index] != 0) {
+		previous_offset = stack.variables[stack.index - 1].offset;
+	}
+
+	const Type type = node->_type;
+
+	for (int i = 0; i < struct_tracker.i; i++) {
+		if (type_lookup(struct_tracker.nodes[i]->token), type) {
+			const Node* struct_node = struct_tracker.nodes[i];
+
+			int struct_size = 0;
+			for (int j = 0; j < struct_node->len; j++) {
+				const Token* member_token = struct_node->children[j].token;
+
+				char temp[32] = {};
+				sprintf(temp, "%s.%s", node->token->value, member_token->value);
+
+				// adds variable to compiler stack
+				strcpy(stack.variables[stack.index].name,
+						temp);
+				stack.variables[stack.index].size = 8;
+				stack.variables[stack.index].offset = previous_offset + 8;
+
+				struct_size += stack.variables[stack.index].size;
+
+				stack.index++;
+				stack.count[stack._index]++;
+
+				previous_offset = stack.variables[stack.index - 1].offset;
+			}
+
+			fprintf(fh, "\tsub rsp, %i  ; %s\n",
+				struct_size, node->token->value);
+		}
+	}
+}
+
 void generate_statement(FILE* fh, const Node* node) {
 	switch (node->token->type) {
-		case EXIT:
+		case TOK_EXIT:
 			generate_exit(fh, node);
 
 			break;
-		case VARIABLE:
-			printf("||| %d\n", node->children[0].type);
-
+		case TOK_VARIABLE:
 			if (!node->token->has_value) {
 				fprintf(stderr, 
 						"Variable token does not have a value. %i\n", 
@@ -239,23 +281,36 @@ void generate_statement(FILE* fh, const Node* node) {
 			}
 
 			if (node->type == NODE_DECLARATION) {
-				printf("count: %i, '%s'\n",
-						stack._index, node->token->value);
+				// get size of variable
+				int previous_offset = 0;
+				if (stack.count[stack._index] != 0) {
+					previous_offset = stack.variables[stack.index - 1].offset;
+				}
+
+				if (node->_type >= STRUCT1) {
+					generate_struct(fh, node);
+					return;
+				}
 
 				// adds variable to compiler stack
 				strcpy(stack.variables[stack.index].name,
 						node->token->value);
-				stack.variables[stack.index].offset =
-					(stack.count[stack._index] + 1) * 8;
+				stack.variables[stack.index].size = 8;
+				stack.variables[stack.index].offset = previous_offset + 8;
+				/*stack.variables[stack.index].offset =
+					(stack.count[stack._index] + 1) * 8;*/
 
-				//push(fh, "rax");
-				fprintf(fh, "\tsub rsp, 8\n");
+				fprintf(fh, "\tsub rsp, %i  ; %s\n",
+					stack.variables[stack.index].size,
+					stack.variables[stack.index].name);
 				stack.index++;
 				stack.count[stack._index]++;
 
 				for (int i = 0; i <= stack.index; i++) {
-					printf("name: '%s'\n", stack.variables[i].name);
+					printf("name: '%s', %i\n", stack.variables[i].name, stack.variables[i].size);
 				}
+
+				return;
 			}
 
 			if (node->children[0].type == NODE_EXPRESSION) {
@@ -265,12 +320,7 @@ void generate_statement(FILE* fh, const Node* node) {
 				sprintf(reg + strlen(reg), "%i", offset);
 				strcat(reg, "]");
 
-				if (node->type == NODE_DECLARATION) {
-					generate_expression(fh, &node->children[0], "rax");
-					fprintf(fh, "\tmov %s, rax\n", reg);
-				} else {
-					generate_expression(fh, &node->children[0], reg);
-				}
+				generate_expression(fh, &node->children[0], reg);
 
 			} else if (node->children[0].type == NODE_OPERATOR) {
 				generate_operator(fh, &node->children[0]);
@@ -284,7 +334,7 @@ void generate_statement(FILE* fh, const Node* node) {
 			}
 
 			break;
-		case FUNC_NAME:
+		case TOK_FUNC_NAME:
 			if (node->type == NODE_CALL_FUNC) {
 				generate_function_call(fh, node);
 			} else { 
@@ -292,12 +342,16 @@ void generate_statement(FILE* fh, const Node* node) {
 			}
 
 			break;
-		case RETURN:
+		case TOK_RETURN:
 			generate_return(fh, node);
 
 			break;
+		case TOK_TYPE:
+			// ignore
+			break;
 		default:
-			fprintf(stderr, "Unsupported token type. :%i\n", 
+			fprintf(stderr, "Unsupported token type. '%d' :%i\n",
+					node->token->type,
 					node->token->line);
 			break;
 	}
@@ -315,10 +369,10 @@ void generate_asm(const Node* root, const char* out_path) {
 	stack._index = 0;
 
 	for (int i = 0; i < root->len; i++) {
-		Node* node = &root->children[i];
+		const Node* node = &root->children[i];
 
 		if (node->type != NODE_STATEMENT && node->type != NODE_DECLARATION && 
-				node->type != NODE_DECLARATION_FUNC) {
+				node->type != NODE_DECLARATION_FUNC && node->type != NODE_STRUCT) {
 			fprintf(stderr, "Node in root is not a valid type. :%i\n", 
 					node->token->line);
 			return;
@@ -330,12 +384,10 @@ void generate_asm(const Node* root, const char* out_path) {
 	fprintf(fh, "\n_start:\n");
 	fprintf(fh, "\tmov rbp, rsp\n\n");
 
-	// call main
 	fprintf(fh, "\tcall main\n");
 
-	fprintf(fh, "\n\tmov rbx, rax\n");
+	fprintf(fh, "\n\tmov rdi, rax\n");
 	fprintf(fh, "\tmov rax, 60\n");
-	fprintf(fh, "\tmov rdi, rbx\n");
 	fprintf(fh, "\tsyscall\n");
 
 	fclose(fh);

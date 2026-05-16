@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
 
 	tokens_from_source(file, &tokens);
 	for (int i = 0; i < tokens.count; i++) {
-		//token_print(&tokens.tokens[i]);
+		token_print(&tokens.tokens[i]);
 	}
 	printf("generated tokens\n");
 
@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
 	root.len = 0;
 
 	parse(&root, tokens);
-	//print_tree(&root.children[0].children[0]);
+	print_tree(&root);
 	printf("parsed ast\n");
 
 	if (!validate_types(&root)) {
