@@ -236,7 +236,7 @@ void generate_struct(FILE*fh, const Node* node) {
 	const Type type = node->_type;
 
 	for (int i = 0; i < struct_tracker.i; i++) {
-		if (type_lookup(struct_tracker.nodes[i]->token), type) {
+		if (type_lookup(struct_tracker.nodes[i]->token) == type) {
 			const Node* struct_node = struct_tracker.nodes[i];
 
 			int struct_size = 0;

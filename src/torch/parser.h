@@ -294,7 +294,7 @@ void parse_variable_declaration(Node* parent) {
 	// yes boss man
 	if (type >= STRUCT1) {
 		for (int i = 0; i < struct_tracker.i; i++) {
-			if (type_lookup(struct_tracker.nodes[i]->token), type) {
+			if (type_lookup(struct_tracker.nodes[i]->token) == type) {
 				const Node* struct_node = struct_tracker.nodes[i];
 
 				for (int j = 0; j < struct_node->len; j++) {
