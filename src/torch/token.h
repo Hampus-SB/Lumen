@@ -16,7 +16,7 @@
 // the index need to match the TokenType enum
 const char* keywords[] = {
 	"=", "+", "-", "*", "/",
-	"(", ")", "{", "}", ".",
+	"(", ")", "{", "}", ",",
 	";", "return", "exit", "struct",
 	"i64", "i32", "i16", "i8",
 	"ui64", "ui32", "ui16", "ui8",
@@ -32,7 +32,7 @@ typedef enum {
 	TOK_PAREN_CLOSE,
 	TOK_BRACE_OPEN,
 	TOK_BRACE_CLOSE,
-	TOK_PERIOD,
+	TOK_COMMA,
 	TOK_SEMICOLON,
 	TOK_RETURN,
 	TOK_EXIT,
@@ -254,17 +254,15 @@ void tokens_from_source(const char* src, TokenArray* tokens) {
 			// add the ) token
 			add_token(tokens, ")");
 		}
-		/*
-		else if (c == '.') {
+		else if (c == ',') {
 			// add token thats currently in buffer
 			add_token(tokens, buffer);
 			memset(buffer, 0, TOKEN_BUFFER_SIZE);
 			idx_buf = 0;
 
 			// add the ) token
-			add_token(tokens, ".");
+			add_token(tokens, ",");
 		}
-		*/
 		else if (c == ' ') {
 			// add token from buffer
 			add_token(tokens, buffer);

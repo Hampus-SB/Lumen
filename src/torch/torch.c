@@ -47,6 +47,8 @@ int main(int argc, char** argv) {
 
 	if (!validate_types(&root)) {
 		fprintf(stderr, "failed to validate types\n");
+		arena_free(&arena);
+		exit(EXIT_FAILURE);
 	}
 	printf("validated types\n");
 

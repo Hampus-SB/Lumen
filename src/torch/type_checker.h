@@ -4,9 +4,11 @@ int validate_compare_nodes(const Node* a, const Node* b) {
     if (b->token->type == TOK_INT_LITERAL) {
         return 1;
     }
+
     const int result = a->_type == b->_type;
     if (result != 1) {
-        fprintf(stderr, "Invalid types. '%d', '%d'\n", a->_type, b->_type);
+        fprintf(stderr, "Invalid types. '%d', '%d'. :%i\n", a->_type, b->_type, a->token->line);
+        fprintf(stderr, "WEIRD: '%s', '%s'\n", a->token->value, b->token->value);
     }
     return result;
 }

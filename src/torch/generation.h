@@ -196,6 +196,12 @@ void generate_function(FILE* fh, const Node* node) {
 
 	for (int i = 0; i < node->len; i++) {
 		generate_statement(fh, &node->children[i]);
+		if (node->children[i].type == NODE_LOCAL_VARIABLE) {
+			if (i == 0)
+				fprintf(fh, "\tmov [rbp - %i], rax\n", get_variable_offset(&node->children[i]));
+			if (i == 1)
+				fprintf(fh, "\tmov [rbp - %i], rbx\n", get_variable_offset(&node->children[i]));
+		}
 	}
 
 	fprintf(fh, "\n\tmov rsp, rbp\n");
@@ -219,6 +225,20 @@ void generate_return(FILE* fh, const Node* node) {
 }
 
 void generate_function_call(FILE* fh, const Node* node) {
+	for (int i = 0; i < node->len; i++) {
+		const Node* child = &node->children[i];
+		if (i == 0)
+			generate_expression(fh, child, "rax");
+		if (i == 1)
+			generate_expression(fh, child, "rbx");
+
+		/*
+		// TODO: stack based argument passing
+		generate_expression(fh, child, "rax");
+		push(fh, "rax");
+		*/
+	}
+
 	fprintf(fh, "\tcall %s\n", node->token->value);
 
 	if (node->parent->token->type == TOK_VARIABLE) {
@@ -280,7 +300,7 @@ void generate_statement(FILE* fh, const Node* node) {
 				return;
 			}
 
-			if (node->type == NODE_DECLARATION) {
+			if (node->type == NODE_DECLARATION || node->type == NODE_LOCAL_VARIABLE) {
 				// get size of variable
 				int previous_offset = 0;
 				if (stack.count[stack._index] != 0) {
@@ -305,11 +325,9 @@ void generate_statement(FILE* fh, const Node* node) {
 					stack.variables[stack.index].name);
 				stack.index++;
 				stack.count[stack._index]++;
+			}
 
-				for (int i = 0; i <= stack.index; i++) {
-					printf("name: '%s', %i\n", stack.variables[i].name, stack.variables[i].size);
-				}
-
+			if (node->type == NODE_LOCAL_VARIABLE) {
 				return;
 			}
 
@@ -329,7 +347,8 @@ void generate_statement(FILE* fh, const Node* node) {
 				generate_function_call(fh, &node->children[0]);
 
 			} else {
-				fprintf(stderr, "Major shitballs 2. :%i\n",
+				fprintf(stderr, "Major shitballs 2. Type '%d' :%i\n",
+						node->type,
 						node->token->line);
 			}
 
@@ -379,6 +398,10 @@ void generate_asm(const Node* root, const char* out_path) {
 		}
 
 		generate_statement(fh, node);
+	}
+
+	for (int i = 0; i < stack.index; i++) {
+		printf("name: '%s', %i\n", stack.variables[i].name, stack.variables[i].size);
 	}
 
 	fprintf(fh, "\n_start:\n");

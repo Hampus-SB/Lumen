@@ -11,6 +11,7 @@ typedef enum {
 	NODE_DECLARATION_FUNC,
 	NODE_CALL_FUNC,
 	NODE_STRUCT,
+	NODE_LOCAL_VARIABLE,
 } NodeType;
 
 typedef enum {
@@ -92,6 +93,8 @@ typedef struct {
 } StructTracker;
 StructTracker struct_tracker;
 
+void print_tree(const Node* root);
+
 void parser_init(const TokenArray tokens) {
 	parser.tokens = tokens;
 	parser.i = 0;
@@ -121,7 +124,7 @@ Token* parser_consume() {
 }
 
 void names_add(const char* name, const Type type) {
-	printf("PARSER: added name '%s'\n", name);
+	printf("PARSER: added name '%s', '%d'\n", name, type);
 	strcpy(names.names[names.i].name, name);
 	names.names[names.i].type = type;
 	names.i++;
@@ -253,14 +256,6 @@ void parse_exit(Node* parent) {
 }
 
 void parse_function_call(Node* parent) {
-	if (parser_peek(1)->type != TOK_PAREN_OPEN &&
-			parser_peek(2)->type != TOK_PAREN_CLOSE &&
-			parser_peek(3)->type != TOK_SEMICOLON) {
-		fprintf(stderr, "Invalid syntax for function call.\n");
-		arena_free(&arena);
-		exit(EXIT_FAILURE);
-	}
-
 	Token* token = parser_peek(0);
 	const Type type = names_get_type(token->value);
 
@@ -268,10 +263,44 @@ void parse_function_call(Node* parent) {
 	Node* node_call = &parent->children[parent->len++];
 	node_init(node_call, parent, NODE_CALL_FUNC, token, NODE_CHILDREN_COUNT, type);
 
+	// consume function name and open paren
 	parser_consume();
 	parser_consume();
+
+	// parse for function arguments
+	Token* child_token = parser_peek(0);
+	while (child_token->type != TOK_PAREN_CLOSE) {
+		if (child_token->type == TOK_SEMICOLON) {
+			break;
+		}
+
+		if (child_token->type != TOK_VARIABLE && child_token->type != TOK_INT_LITERAL) {
+			fprintf(stderr, "Expected variable or literal token. %d. :%i\n",
+				child_token->type, child_token->line);
+			arena_free(&arena);
+			exit(EXIT_FAILURE);
+		}
+
+		Type child_type = NO_TYPE;
+		if (child_token->type == TOK_VARIABLE) {
+			child_type = names_get_type(child_token->value);
+		}
+
+		Node* node = &node_call->children[node_call->len++];
+		node_init(node, node_call, NODE_EXPRESSION, child_token, NODE_CHILDREN_COUNT, child_type);
+
+		// consume expression and comma / close paren
+		parser_consume();
+		parser_consume();
+
+		child_token = parser_peek(0);
+	}
+
+	// consume semicolon
 	parser_consume();
-	parser_consume();
+	if (child_token->type == TOK_PAREN_CLOSE) {
+		parser_consume();
+	}
 }
 
 // i is at variable type token
@@ -406,11 +435,51 @@ void parse_function_declaration(Node* parent) {
 	Node* node_func = &parent->children[parent->len++];
 	node_init(node_func, parent, NODE_DECLARATION_FUNC, token_name, NODE_ROOT_CHILDREN_COUNT, type);
 
-	// consume function name, parenthesis, open brace tokens
+	// consume function name, open paren
 	parser_consume();
 	parser_consume();
+
+	// parse arguments
+	Token* child_token = parser_peek(0);
+	while (child_token->type != TOK_PAREN_CLOSE) {
+		if (child_token->type == TOK_BRACE_OPEN) {
+			break;
+		}
+
+		if (child_token->type != TOK_TYPE) {
+			fprintf(stderr, "Incorrect argument syntax. Expected type. :%i\n", child_token->line);
+			arena_free(&arena);
+			exit(EXIT_FAILURE);
+		}
+		const Type child_type = type_lookup(child_token);
+
+		// consume type token
+		parser_consume();
+
+		child_token = parser_peek(0);
+		if (child_token->type != TOK_VARIABLE) {
+			fprintf(stderr, "Incorrect argument syntax. Expected variable :%i\n", child_token->line);
+			arena_free(&arena);
+			exit(EXIT_FAILURE);
+		}
+
+		names_add(child_token->value, child_type);
+
+		Node* node = &node_func->children[node_func->len++];
+		node_init(node, node_func, NODE_LOCAL_VARIABLE, child_token, NODE_CHILDREN_COUNT, child_type);
+
+		// consume variable name and comma
+		parser_consume();
+		parser_consume();
+
+		child_token = parser_peek(0);
+	}
+
+	// consume close paren and open brace
 	parser_consume();
-	parser_consume();
+	if (child_token->type == TOK_PAREN_CLOSE) {
+		parser_consume();
+	}
 
 	parse_node(node_func);
 }
@@ -424,9 +493,12 @@ void parse_return(Node* parent) {
 
 	Token* token = parser_peek(0);
 
+	// return node type is the same as function return type
+	const Type type = parent->_type;
+
 	// create return node
 	Node* node_ret = &parent->children[parent->len++];
-	node_init(node_ret, parent, NODE_STATEMENT, token, NODE_CHILDREN_COUNT, NO_TYPE);
+	node_init(node_ret, parent, NODE_STATEMENT, token, NODE_CHILDREN_COUNT, type);
 
 	parser_consume();
 	parse_expression(node_ret);
@@ -443,7 +515,7 @@ void parse_struct(Node* parent) {
 	const Type type = type_lookup(token_type);
 	names_add(token_type->value, type);
 
-	// open brace
+	// consume open brace
 	parser_consume();
 
 	parse_node(node_struct);
