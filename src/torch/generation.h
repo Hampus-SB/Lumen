@@ -8,7 +8,7 @@ typedef struct {
 	char name[VARIABLE_NAME_SIZE];
 	int offset;  // offset from rbp
 	int size;  // size on stack in bytes
-	Type type;
+	TypeObj* type;
 } Variable;
 
 typedef struct {
@@ -22,79 +22,13 @@ typedef struct {
 
 Stack stack;
 
-void push(FILE* fh, const char* reg) {
-	fprintf(fh, "\tpush %s\n", reg);
-	stack.index++;
-	stack.count[stack._index]++;
-}
-
-void pop(FILE* fh, const char* reg) {
-	fprintf(fh, "\tpop %s\n", reg);
-	stack.index--;
-	stack.count[stack._index]--;
-}
-
 void get_register(const Node* node, char* reg, const int count) {
-	const Type type = node->_type;
-	if (type == I8 || type == UI8) {
-		if (count == 1) {
-			strcpy(reg, "al");
-		} else {
-			strcpy(reg, "bl");
-		}
-	}
-	if (type == I16 || type == UI16) {
-		if (count == 1) {
-			strcpy(reg, "ax");
-		} else {
-			strcpy(reg, "bx");
-		}
-	}
-	if (type == I32 || type == UI32) {
-		if (count == 1) {
-			strcpy(reg, "eax");
-		} else {
-			strcpy(reg, "ebx");
-		}
-	}
-	if (type == I64 || type == UI64) {
-		if (count == 1) {
-			strcpy(reg, "rax");
-		} else {
-			strcpy(reg, "rbx");
-		}
+	if (count == 1) {
+		strcpy(reg, "eax");
+	} else {
+		strcpy(reg, "ebx");
 	}
 }
-
-// pushes a variable to the top of the stack
-// returns the variable offset
-/*int fetch_variable(FILE* fh, const Node* node) {
-	int offset = -1;
-
-	int match = 0;
-	for (int i = 0; i <= stack.index; i++) {
-		if (strcmp(stack.variables[i].name,
-					node->token->value) == 0) {
-			match = 1;
-			fprintf(fh, "\tpush QWORD [rbp - %i]\n", 
-					stack.variables[i].offset);
-
-			offset = stack.variables[i].offset;
-			stack.index++;
-			stack.count[stack._index]++;
-			break;
-		}
-	}
-
-	if (!match) {
-		fprintf(stderr, 
-				"Variable name does not exist.. '%s' :%i\n",
-				node->token->value,
-				node->token->line);
-	}
-
-	return offset;
-}*/
 
 // returns the variable offset from rbp
 int get_variable_offset(const Node* node) {
@@ -253,10 +187,12 @@ void generate_struct(FILE*fh, const Node* node) {
 		previous_offset = stack.variables[stack.index - 1].offset;
 	}
 
-	const Type type = node->_type;
+	const TypeObj* type = node->type_info;
 
 	for (int i = 0; i < struct_tracker.i; i++) {
-		if (type_lookup(struct_tracker.nodes[i]->token) == type) {
+		const TypeObj* struct_type = get_type_obj(struct_tracker.nodes[i]->token->value);
+
+		if (struct_type->id == type->id)  {
 			const Node* struct_node = struct_tracker.nodes[i];
 
 			int struct_size = 0;
@@ -307,7 +243,7 @@ void generate_statement(FILE* fh, const Node* node) {
 					previous_offset = stack.variables[stack.index - 1].offset;
 				}
 
-				if (node->_type >= STRUCT1) {
+				if (node->type_info->id >= types._struct_start) {
 					generate_struct(fh, node);
 					return;
 				}

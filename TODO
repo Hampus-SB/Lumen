@@ -1,0 +1,21 @@
+TORCH:
+refactor
+structs in structs
+pass arguments on stack
+refactor
+tokenize string literals
+struct function arguments + return
+heap allocations
+pointers
+refactor
+floats
+string type
+refactor
+refactor
+vector type
+validate function arguments
+variable names are local
+scopes
+refactor
+if statements
+refactor

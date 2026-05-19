@@ -3,6 +3,8 @@
 #include <string.h>
 #include <ctype.h>
 
+#include "types.h"
+
 #define LUMEN_ARENA_IMPLEMENTATION
 #include "arena.h"
 
@@ -16,7 +18,7 @@
 // the index need to match the TokenType enum
 const char* keywords[] = {
 	"=", "+", "-", "*", "/",
-	"(", ")", "{", "}", ",",
+	"(", ")", "{", "}", ",", "&", "*",
 	";", "return", "exit", "struct",
 	"i64", "i32", "i16", "i8",
 	"ui64", "ui32", "ui16", "ui8",
@@ -33,6 +35,8 @@ typedef enum {
 	TOK_BRACE_OPEN,
 	TOK_BRACE_CLOSE,
 	TOK_COMMA,
+	TOK_ADDRESS,
+	TOK_POINTER,
 	TOK_SEMICOLON,
 	TOK_RETURN,
 	TOK_EXIT,
@@ -59,25 +63,10 @@ typedef struct {
 
 int line;
 
-typedef struct {
-	char names[MAX_STRUCT_COUNT][TOKEN_BUFFER_SIZE];
-	int i;
-} Structs;
-
-Structs structs;
-
-void add_struct(const char* name) {
-	if (structs.i >= MAX_STRUCT_COUNT) {
-		fprintf(stderr, "Too many struct declarations.\n");
-		return;
-	}
-	strcpy(structs.names[structs.i++], name);
-}
-
 void token_print(const Token* token) {
 	printf("token: ");
-	if (token->type < 14) {
-		printf("'%s'", keywords[token->type]);
+	if (token->type < 16) {
+		printf("'%s', %d", keywords[token->type], token->type);
 	} else if (token->type == TOK_TYPE) {
 		printf("'type'");
 	}else if (token->type == TOK_VARIABLE) {
@@ -107,27 +96,27 @@ void token_init(const char* str, Token* token, TokenArray* tokens) {
 	token->has_value = 0;  // default to false
 	token->line = line;
 
-	for (int i = 0; i < structs.i; i++) {
-		if (strcmp(structs.names[i], str) == 0) {
+	for (int i = 0; i < types.count; i++) {
+		if (strcmp(str, types.types[i].name) == 0) {
+			printf("ABC\n");
 			token->has_value = 1;
-			strncpy(token->value, structs.names[i], TOKEN_BUFFER_SIZE);
+			strncpy(token->value, str, TOKEN_BUFFER_SIZE);
 			token->type = TOK_TYPE;
 			return;
 		}
 	}
 
-	for (int i = 0; i < 22; i++) {
+	for (int i = 0; i < 16; i++) {
 		if (strcmp(str, keywords[i]) == 0) {
-			// matches against a type
-			if (i >= 14) {
-				token->has_value = 1;
-				strncpy(token->value, keywords[i], TOKEN_BUFFER_SIZE);
-				token->type = TOK_TYPE;
-				return;
-			}
 			token->type = i;
 			return;
 		}
+	}
+
+	if (tokens->tokens[tokens->count - 1].type == TOK_TYPE
+		&& strcmp(str, "*") == 0) {
+		token->type = TOK_POINTER;
+		return;
 	}
 
 	// determine if type is a literal or a variable name
@@ -148,7 +137,8 @@ void token_init(const char* str, Token* token, TokenArray* tokens) {
 
 	if (tokens->tokens[tokens->count - 1].type == TOK_STRUCT) {
 		token->type = TOK_TYPE;
-		add_struct(str);
+		strncpy(token->value, str, TYPE_NAME_SIZE);
+		types_append(token->value);
 	}
 	else if (int_lit) {
 		token->type = TOK_INT_LITERAL;
@@ -262,6 +252,24 @@ void tokens_from_source(const char* src, TokenArray* tokens) {
 
 			// add the ) token
 			add_token(tokens, ",");
+		}
+		else if (c == '&') {
+			// add token thats currently in buffer
+			add_token(tokens, buffer);
+			memset(buffer, 0, TOKEN_BUFFER_SIZE);
+			idx_buf = 0;
+
+			// add the ) token
+			add_token(tokens, "&");
+		}
+		else if (c == '*') {
+			// add token thats currently in buffer
+			add_token(tokens, buffer);
+			memset(buffer, 0, TOKEN_BUFFER_SIZE);
+			idx_buf = 0;
+
+			// add the ) token
+			add_token(tokens, "*");
 		}
 		else if (c == ' ') {
 			// add token from buffer

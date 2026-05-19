@@ -25,6 +25,7 @@ int main(int argc, char** argv) {
 	fclose(fh);
 
 	arena_init(&arena, ARENA_DEFAULT_SIZE);
+	types_init();
 
 	TokenArray tokens;
 	tokens.capacity = TOKEN_DEFAULT_COUNT;

@@ -5,10 +5,13 @@ int validate_compare_nodes(const Node* a, const Node* b) {
         return 1;
     }
 
-    const int result = a->_type == b->_type;
+    const int result = a->type_info->id == b->type_info->id;
     if (result != 1) {
-        fprintf(stderr, "Invalid types. '%d', '%d'. :%i\n", a->_type, b->_type, a->token->line);
-        fprintf(stderr, "WEIRD: '%s', '%s'\n", a->token->value, b->token->value);
+        fprintf(stderr, "Invalid types. '%s', '%s'. :%i\n",
+            a->type_info->name, b->type_info->name,
+            a->token->line);
+        fprintf(stderr, "WEIRD: '%s', '%s'\n",
+            a->token->value, b->token->value);
     }
     return result;
 }
