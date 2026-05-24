@@ -1,4 +1,14 @@
-#include "generation.h"
+#include "../../include/torch/arena.h"
+#include "../../include/torch/types.h"
+#include "../../include/torch/tokenizer.h"
+#include "../../include/torch/parser.h"
+#include "../../include/torch/symbols.h"
+#include "../../include/torch/type_checker.h"
+#include "../../include/torch/generation.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define FILE_BUFFER_SIZE 8192
 #define FILE_BUFFER_LINE_SIZE 128
@@ -24,13 +34,14 @@ int main(int argc, char** argv) {
 
 	fclose(fh);
 
-	arena_init(&arena, ARENA_DEFAULT_SIZE);
+	arena_init(get_arena(), ARENA_DEFAULT_SIZE);
 	types_init();
+	symbol_table_init();
 
 	TokenArray tokens;
 	tokens.capacity = TOKEN_DEFAULT_COUNT;
 	tokens.count = 0;
-	tokens.tokens = arena_alloc(&arena, tokens.capacity * sizeof(Token));
+	tokens.tokens = arena_alloc(get_arena(), tokens.capacity * sizeof(Token));
 
 	tokens_from_source(file, &tokens);
 	for (int i = 0; i < tokens.count; i++) {
@@ -39,7 +50,7 @@ int main(int argc, char** argv) {
 	printf("generated tokens\n");
 
 	Node root;
-	root.children = arena_alloc(&arena, sizeof(Node) * NODE_ROOT_CHILDREN_COUNT);
+	root.children = arena_alloc(get_arena(), sizeof(Node) * NODE_ROOT_CHILDREN_COUNT);
 	root.len = 0;
 
 	parse(&root, tokens);
@@ -48,7 +59,7 @@ int main(int argc, char** argv) {
 
 	if (!validate_types(&root)) {
 		fprintf(stderr, "failed to validate types\n");
-		arena_free(&arena);
+		arena_free(get_arena());
 		exit(EXIT_FAILURE);
 	}
 	printf("validated types\n");
@@ -59,6 +70,6 @@ int main(int argc, char** argv) {
 	system("nasm -felf64 build/a.asm");
 	system("ld build/a.o -o a.out");
 
-	arena_free(&arena);
+	arena_free(get_arena());
 	return 0;
 }

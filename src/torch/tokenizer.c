@@ -1,65 +1,26 @@
+#include "../../include/torch/types.h"
+#include "../../include/torch/tokenizer.h"
+
+#define LUMEN_ARENA_IMPLEMENTATION
+#include "../../include/torch/arena.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
-#include "types.h"
-
-#define LUMEN_ARENA_IMPLEMENTATION
-#include "arena.h"
-
-#define TOKEN_DEFAULT_COUNT 256
-#define TOKEN_BUFFER_SIZE 32
-
 #define FUNCTION_SPECIAL '#'
 
 #define MAX_STRUCT_COUNT 32
+
+#define KEYWORD_COUNT 16
 
 // the index need to match the TokenType enum
 const char* keywords[] = {
 	"=", "+", "-", "*", "/",
 	"(", ")", "{", "}", ",", "&", "*",
 	";", "return", "exit", "struct",
-	"i64", "i32", "i16", "i8",
-	"ui64", "ui32", "ui16", "ui8",
 };
-
-typedef enum {
-	TOK_EQUALS,
-	TOK_ADD,
-	TOK_SUBTRACT,
-	TOK_MULTIPLY,
-	TOK_DIVIDE,
-	TOK_PAREN_OPEN,
-	TOK_PAREN_CLOSE,
-	TOK_BRACE_OPEN,
-	TOK_BRACE_CLOSE,
-	TOK_COMMA,
-	TOK_ADDRESS,
-	TOK_POINTER,
-	TOK_SEMICOLON,
-	TOK_RETURN,
-	TOK_EXIT,
-	TOK_STRUCT,
-	TOK_TYPE,
-
-	TOK_VARIABLE,
-	TOK_FUNC_NAME,
-	TOK_INT_LITERAL,
-} TokenType;
-
-typedef struct {
-	TokenType type;
-	int has_value;  // boolean
-	char value[TOKEN_BUFFER_SIZE];
-	int line;  // line number where token is defined in source
-} Token;
-
-typedef struct {
-	Token* tokens;
-	size_t capacity;
-	size_t count;
-} TokenArray;
 
 int line;
 
@@ -96,17 +57,14 @@ void token_init(const char* str, Token* token, TokenArray* tokens) {
 	token->has_value = 0;  // default to false
 	token->line = line;
 
-	for (int i = 0; i < types.count; i++) {
-		if (strcmp(str, types.types[i].name) == 0) {
-			printf("ABC\n");
-			token->has_value = 1;
-			strncpy(token->value, str, TOKEN_BUFFER_SIZE);
-			token->type = TOK_TYPE;
-			return;
-		}
+	if (types_exists(str)) {
+		token->has_value = 1;
+		strncpy(token->value, str, TOKEN_BUFFER_SIZE);
+		token->type = TOK_TYPE;
+		return;
 	}
 
-	for (int i = 0; i < 16; i++) {
+	for (int i = 0; i < KEYWORD_COUNT; i++) {
 		if (strcmp(str, keywords[i]) == 0) {
 			token->type = i;
 			return;

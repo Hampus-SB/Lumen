@@ -1,4 +1,9 @@
-#include "type_checker.h"
+#include "../../include/torch/generation.h"
+#include "../../include/torch/symbols.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define STACK_SIZE 64
 #define VARIABLE_NAME_SIZE 32
@@ -181,7 +186,9 @@ void generate_function_call(FILE* fh, const Node* node) {
 	}
 }
 
-void generate_struct(FILE*fh, const Node* node) {
+void generate_struct(FILE* fh, const Node* node) {
+	printf("gen struct\n");
+
 	int previous_offset = 0;
 	if (stack.count[stack._index] != 0) {
 		previous_offset = stack.variables[stack.index - 1].offset;
@@ -189,40 +196,42 @@ void generate_struct(FILE*fh, const Node* node) {
 
 	const TypeObj* type = node->type_info;
 
-	for (int i = 0; i < struct_tracker.i; i++) {
-		const TypeObj* struct_type = get_type_obj(struct_tracker.nodes[i]->token->value);
+	if (types_is_struct(type)) {
+		const Node* struct_node = symbol_table_find_struct(type);
+		int struct_size = 0;
 
-		if (struct_type->id == type->id)  {
-			const Node* struct_node = struct_tracker.nodes[i];
+		for (int i = 0; i < struct_node->len; i++) {
+			const Token* member_token = struct_node->children[i].token;
 
-			int struct_size = 0;
-			for (int j = 0; j < struct_node->len; j++) {
-				const Token* member_token = struct_node->children[j].token;
+			char temp[32] = {};
+			sprintf(temp, "%s.%s", node->token->value, member_token->value);
 
-				char temp[32] = {};
-				sprintf(temp, "%s.%s", node->token->value, member_token->value);
+			// adds variable to compiler stack
+			strcpy(stack.variables[stack.index].name,
+					temp);
+			stack.variables[stack.index].size = 8;
+			stack.variables[stack.index].offset = previous_offset + 8;
 
-				// adds variable to compiler stack
-				strcpy(stack.variables[stack.index].name,
-						temp);
-				stack.variables[stack.index].size = 8;
-				stack.variables[stack.index].offset = previous_offset + 8;
+			struct_size += stack.variables[stack.index].size;
 
-				struct_size += stack.variables[stack.index].size;
+			stack.index++;
+			stack.count[stack._index]++;
 
-				stack.index++;
-				stack.count[stack._index]++;
-
-				previous_offset = stack.variables[stack.index - 1].offset;
-			}
-
-			fprintf(fh, "\tsub rsp, %i  ; %s\n",
-				struct_size, node->token->value);
+			previous_offset = stack.variables[stack.index - 1].offset;
 		}
+
+		fprintf(fh, "\tsub rsp, %i  ; %s\n", struct_size,
+			node->token->value);
 	}
 }
 
 void generate_statement(FILE* fh, const Node* node) {
+	printf("gen statement\n");
+
+	if (node->type == NODE_IGNORE) {
+		return;
+	}
+
 	switch (node->token->type) {
 		case TOK_EXIT:
 			generate_exit(fh, node);
@@ -243,7 +252,7 @@ void generate_statement(FILE* fh, const Node* node) {
 					previous_offset = stack.variables[stack.index - 1].offset;
 				}
 
-				if (node->type_info->id >= types._struct_start) {
+				if (types_is_struct(node->type_info)) {
 					generate_struct(fh, node);
 					return;
 				}
@@ -286,6 +295,7 @@ void generate_statement(FILE* fh, const Node* node) {
 				fprintf(stderr, "Major shitballs 2. Type '%d' :%i\n",
 						node->type,
 						node->token->line);
+				exit(1);
 			}
 
 			break;

@@ -1,4 +1,6 @@
-#include "parser.h"
+#include "../../include/torch/type_checker.h"
+
+#include <stdio.h>
 
 int validate_compare_nodes(const Node* a, const Node* b) {
     if (b->token->type == TOK_INT_LITERAL) {
@@ -10,8 +12,6 @@ int validate_compare_nodes(const Node* a, const Node* b) {
         fprintf(stderr, "Invalid types. '%s', '%s'. :%i\n",
             a->type_info->name, b->type_info->name,
             a->token->line);
-        fprintf(stderr, "WEIRD: '%s', '%s'\n",
-            a->token->value, b->token->value);
     }
     return result;
 }

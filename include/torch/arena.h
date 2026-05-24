@@ -1,6 +1,8 @@
 #ifndef LUMEN_ARENA_H
 #define LUMEN_ARENA_H
 
+#include <stddef.h>
+
 #define ARENA_DEFAULT_SIZE 524288
 
 typedef struct {
@@ -14,6 +16,7 @@ void arena_init(Arena* arena, size_t size);
 void arena_free(Arena* arena);
 void* arena_alloc(Arena* arena, size_t size);
 void arena_extend(Arena* arena);
+Arena* get_arena();
 
 #endif  /* LUMEN_ARENA_H */
 
@@ -23,6 +26,8 @@ void arena_extend(Arena* arena);
 
 #include <stdio.h>
 #include <stdlib.h>
+
+Arena arena;
 
 void arena_init(Arena* arena, size_t size) {
     arena->memory = malloc(size);
@@ -55,6 +60,8 @@ void arena_extend(Arena* arena) {
     arena->prev_alloc_size *= 2;
 }
 
-Arena arena;
+Arena* get_arena() {
+    return &arena;
+}
 
 #endif  /* LUMEN_ARENA_IMPLEMENTATION */

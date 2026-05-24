@@ -1,28 +1,10 @@
-#include "token.h"
+#include "../../include/torch/parser.h"
+#include "../../include/torch/arena.h"
+#include "../../include/torch/symbols.h"
 
-#define NODE_CHILDREN_COUNT 8
-#define NODE_ROOT_CHILDREN_COUNT 512
-
-typedef enum {
-	NODE_DECLARATION,  // variable declaration
-	NODE_STATEMENT,
-	NODE_EXPRESSION,
-	NODE_OPERATOR,
-	NODE_DECLARATION_FUNC,
-	NODE_CALL_FUNC,
-	NODE_STRUCT,
-	NODE_LOCAL_VARIABLE,
-} NodeType;
-
-typedef struct Node {
-	NodeType type;
-	struct Node* parent;
-	struct Node* children;
-	int len;  // how many children
-	
-	Token* token;
-	TypeObj* type_info;
-} Node;
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 typedef struct {
 	TokenArray tokens;
@@ -30,26 +12,6 @@ typedef struct {
 } Parser;
 
 Parser parser;
-
-typedef struct {
-	char name[TOKEN_BUFFER_SIZE];
-	TypeObj* type;
-} Name;
-
-typedef struct {
-	Name names[512];
-	int i;
-	// int scope;
-} NameTracker;
-NameTracker names;
-
-typedef struct {
-	const Node* nodes[MAX_STRUCT_COUNT];
-	int i;
-} StructTracker;
-StructTracker struct_tracker;
-
-void print_tree(const Node* root);
 
 void parser_init(const TokenArray tokens) {
 	parser.tokens = tokens;
@@ -79,46 +41,15 @@ Token* parser_consume() {
 	return &parser.tokens.tokens[parser.i++];
 }
 
-void names_add(const char* name, TypeObj* type) {
-	printf("PARSER: added name '%s', '%s'\n", name, type->name);
-	strcpy(names.names[names.i].name, name);
-	names.names[names.i].type = type;
-	names.i++;
-}
-
-// get type of known variable or function
-TypeObj* names_get_type(const char* name) {
-	for (int i = 0; i < names.i; i++) {
-		if (strcmp(name, names.names[i].name) == 0) {
-			return names.names[i].type;
-		}
-	}
-	fprintf(stderr, "Failed to fetch type of name. '%s'\n", name);
-	return NULL;
-}
-
-TypeObj* get_type_obj(const char* name) {
-	for (int i = 0; i < types.count; i++) {
-		if (strcmp(name, types.types[i].name) == 0) {
-			return &types.types[i];
-		}
-	}
-	return NULL;
-}
-
 void node_init(Node* node, Node* parent, NodeType type, Token* token, int children, TypeObj* type_info) {
 	node->type = type;
 	node->parent = parent;
 	node->token = token;
 	node->len = 0;
 	if (children != 0) {
-		node->children = arena_alloc(&arena, sizeof(Node) * children);
+		node->children = arena_alloc(get_arena(), sizeof(Node) * children);
 	}
 	node->type_info = type_info;
-}
-
-void add_struct_nodes(const Node* node) {
-	struct_tracker.nodes[struct_tracker.i++] = node;
 }
 
 // create expression child node for 'parent'
@@ -131,14 +62,14 @@ void parse_expression(Node* parent) {
 		fprintf(stderr, 
 				"Expected variable or literal token. :%i\n", 
 				token->line);
-		arena_free(&arena);
+		arena_free(get_arena());
 		exit(EXIT_FAILURE);  // leaks memory
 	}
 
 	// if int literal keep as I64
-	TypeObj* type = get_type_obj("i64");
+	TypeObj* type = types_get_type_obj("i64");
 	if (token->type == TOK_VARIABLE) {
-		type = names_get_type(token->value);
+		type = symbol_table_find_type(token->value);
 	}
 
 	// NOTE: children are not allocated for the expression node
@@ -161,12 +92,12 @@ void parse_operator(Node* node) {
 			token->type != TOK_DIVIDE) {
 		fprintf(stderr, "Operator not supported '%s'.:%i\n", 
 				token->value, token->line);
-		arena_free(&arena);
+		arena_free(get_arena());
 		exit(EXIT_FAILURE);
 	}
 
 	// type same as parent
-	TypeObj* type = names_get_type(node->token->value);
+	TypeObj* type = symbol_table_find_type(node->token->value);
 	Node* node_op = &node->children[0];
 	node_init(node_op, node, NODE_OPERATOR, token, NODE_CHILDREN_COUNT, type);
 
@@ -179,14 +110,14 @@ void parse_operator(Node* node) {
 void parse_exit(Node* parent) {
 	if (parser_peek(2)->type != TOK_SEMICOLON) {
 		fprintf(stderr, "Expected semicolon after exit.\n");
-		arena_free(&arena);
+		arena_free(get_arena());
 		exit(EXIT_FAILURE);
 	}
 
 	Token* token = parser_peek(0);
 
 	// create exit node
-	TypeObj* type = names_get_type("ui32");
+	TypeObj* type = types_get_type_obj("ui32");
 	Node* node_exit = &parent->children[parent->len++];
 	node_init(node_exit, parent, NODE_STATEMENT, token, NODE_CHILDREN_COUNT, type);
 
@@ -197,7 +128,7 @@ void parse_exit(Node* parent) {
 
 void parse_function_call(Node* parent) {
 	Token* token = parser_peek(0);
-	TypeObj* type = names_get_type(token->value);
+	TypeObj* type = symbol_table_find_type(token->value);
 
 	// create call node
 	Node* node_call = &parent->children[parent->len++];
@@ -217,13 +148,13 @@ void parse_function_call(Node* parent) {
 		if (child_token->type != TOK_VARIABLE && child_token->type != TOK_INT_LITERAL) {
 			fprintf(stderr, "Expected variable or literal token. %d. :%i\n",
 				child_token->type, child_token->line);
-			arena_free(&arena);
+			arena_free(get_arena());
 			exit(EXIT_FAILURE);
 		}
 
-		TypeObj* child_type = get_type_obj("NULL");
+		TypeObj* child_type = types_get_type_obj("NULL");
 		if (child_token->type == TOK_VARIABLE) {
-			child_type = names_get_type(child_token->value);
+			child_type = symbol_table_find_type(child_token->value);
 		}
 
 		Node* node = &node_call->children[node_call->len++];
@@ -247,41 +178,42 @@ void parse_function_call(Node* parent) {
 void parse_variable_declaration(Node* parent) {
 	// type token
 	const Token* token_type = parser_peek(0);
-	TypeObj* type = get_type_obj(token_type->value);
+	TypeObj* type = types_get_type_obj(token_type->value);
 
 	// consume type
 	parser_consume();
 	Token* token_name = parser_peek(0);
 
-	if (parent->type != NODE_STRUCT) {
-		names_add(token_name->value, type);
-	}
-
 	Node* node_stmt = &parent->children[parent->len++];
 	node_init(node_stmt, parent, NODE_DECLARATION, token_name, NODE_CHILDREN_COUNT, type);
 
-	if (type->id >= types._struct_start) {
-		for (int i = 0; i < struct_tracker.i; i++) {
-			const TypeObj* struct_type = get_type_obj(struct_tracker.nodes[i]->token->value);
+	if (parent->type != NODE_STRUCT) {
+		symbol_table_append(node_stmt);
+	}
 
-			if (struct_type->id == type->id) {
-				const Node* struct_node = struct_tracker.nodes[i];
+	if (types_is_struct(type)) {
+		const Node* struct_node = symbol_table_find_struct(type);
 
-				for (int j = 0; j < struct_node->len; j++) {
-					const Token* member_token = struct_node->children[j].token;
-					TypeObj* member_type = struct_node->children[j].type_info;
+		for (int i = 0; i < struct_node->len; i++) {
+			const Token* member_token = struct_node->children[i].token;
+			TypeObj* member_type = struct_node->children[i].type_info;
 
-					char temp[TOKEN_BUFFER_SIZE] = {};
-					sprintf(temp, "%s.%s", token_name->value, member_token->value);
-					names_add(temp, member_type);
-				}
+			char name[TOKEN_BUFFER_SIZE] = {};
+			sprintf(name, "%s.%s", token_name->value, member_token->value);
 
-				// consume name and semicolon
-				parser_consume();
-				parser_consume();
-				return;
-			}
+			Token* child_token = arena_alloc(get_arena(), sizeof(Token));
+			token_init(name, child_token, &parser.tokens);
+
+			Node* member_node = &parent->children[parent->len++];
+			node_init(member_node, parent, NODE_IGNORE, child_token, NODE_CHILDREN_COUNT, member_type);
+
+			symbol_table_append(member_node);
 		}
+
+		// consume name and semicolon
+		parser_consume();
+		parser_consume();
+		return;
 	}
 
 	if (parser_peek(1)->type == TOK_SEMICOLON) {
@@ -315,7 +247,7 @@ void parse_variable_declaration(Node* parent) {
 		fprintf(stderr, 
 				"Missing tokens after variable or misplaced ';'. :%i\n", 
 				parser_peek(0)->line);
-		arena_free(&arena);
+		arena_free(get_arena());
 		exit(EXIT_FAILURE);
 	}
 }
@@ -323,7 +255,7 @@ void parse_variable_declaration(Node* parent) {
 // i is at variable name token
 void parse_variable(Node* parent) {
 	Token* token = parser_peek(0);
-	TypeObj* type = names_get_type(token->value);
+	TypeObj* type = symbol_table_find_type(token->value);
 
 	Node* node_stmt = &parent->children[parent->len++];
 	node_init(node_stmt, parent, NODE_STATEMENT, token, NODE_CHILDREN_COUNT, type);
@@ -354,7 +286,7 @@ void parse_variable(Node* parent) {
 		fprintf(stderr,
 				"Missing tokens after variable or misplaced ';'. :%i\n",
 				parser_peek(0)->line);
-		arena_free(&arena);
+		arena_free(get_arena());
 		exit(EXIT_FAILURE);
 	}
 }
@@ -365,16 +297,16 @@ void parse_node(Node*);
 // i is at function type token
 void parse_function_declaration(Node* parent) {
 	const Token* token_type = parser_peek(0);
-	TypeObj* type = get_type_obj(token_type->value);
+	TypeObj* type = types_get_type_obj(token_type->value);
 
 	// consume type token
 	parser_consume();
 	Token* token_name = parser_peek(0);
 
-	names_add(token_name->value, type);
-
 	Node* node_func = &parent->children[parent->len++];
 	node_init(node_func, parent, NODE_DECLARATION_FUNC, token_name, NODE_ROOT_CHILDREN_COUNT, type);
+
+	symbol_table_append(node_func);
 
 	// consume function name, open paren
 	parser_consume();
@@ -389,10 +321,10 @@ void parse_function_declaration(Node* parent) {
 
 		if (child_token->type != TOK_TYPE) {
 			fprintf(stderr, "Incorrect argument syntax. Expected type. :%i\n", child_token->line);
-			arena_free(&arena);
+			arena_free(get_arena());
 			exit(EXIT_FAILURE);
 		}
-		TypeObj* child_type = get_type_obj(child_token->value);
+		TypeObj* child_type = types_get_type_obj(child_token->value);
 
 		// consume type token
 		parser_consume();
@@ -400,14 +332,14 @@ void parse_function_declaration(Node* parent) {
 		child_token = parser_peek(0);
 		if (child_token->type != TOK_VARIABLE) {
 			fprintf(stderr, "Incorrect argument syntax. Expected variable :%i\n", child_token->line);
-			arena_free(&arena);
+			arena_free(get_arena());
 			exit(EXIT_FAILURE);
 		}
 
-		names_add(child_token->value, child_type);
-
 		Node* node = &node_func->children[node_func->len++];
 		node_init(node, node_func, NODE_LOCAL_VARIABLE, child_token, NODE_CHILDREN_COUNT, child_type);
+
+		symbol_table_append(node);
 
 		// consume variable name and comma
 		parser_consume();
@@ -428,7 +360,7 @@ void parse_function_declaration(Node* parent) {
 void parse_return(Node* parent) {
 	if (parser_peek(2)->type != TOK_SEMICOLON) {
 		fprintf(stderr, "Expected semicolon after return.\n");
-		arena_free(&arena);
+		arena_free(get_arena());
 		exit(EXIT_FAILURE);
 	}
 
@@ -450,19 +382,16 @@ void parse_struct(Node* parent) {
 	parser_consume();
 	parser_consume();
 
-	TypeObj* _type = get_type_obj("NULL");
+	TypeObj* _type = types_get_type_obj("NULL");
 	Node* node_struct = &parent->children[parent->len++];
 	node_init(node_struct, parent, NODE_STRUCT, token_type, NODE_ROOT_CHILDREN_COUNT, _type);
-
-	TypeObj* type = get_type_obj(token_type->value);
-	names_add(token_type->value, type);
 
 	// consume open brace
 	parser_consume();
 
 	parse_node(node_struct);
 
-	add_struct_nodes(node_struct);
+	symbol_table_append(node_struct);
 }
 
 // parse for children of one depth (kind of)

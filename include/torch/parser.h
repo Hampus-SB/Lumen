@@ -1,0 +1,35 @@
+#ifndef LUMEN_PARSER_H
+#define LUMEN_PARSER_H
+
+#include "tokenizer.h"
+#include "types.h"
+
+#define NODE_CHILDREN_COUNT 8
+#define NODE_ROOT_CHILDREN_COUNT 512
+
+typedef enum {
+    NODE_IGNORE,
+    NODE_DECLARATION,  // variable declaration
+    NODE_STATEMENT,
+    NODE_EXPRESSION,
+    NODE_OPERATOR,
+    NODE_DECLARATION_FUNC,
+    NODE_CALL_FUNC,
+    NODE_STRUCT,
+    NODE_LOCAL_VARIABLE,
+} NodeType;
+
+typedef struct Node {
+    NodeType type;
+    struct Node* parent;
+    struct Node* children;
+    int len;  // how many children
+
+    Token* token;
+    TypeObj* type_info;
+} Node;
+
+void print_tree(const Node* root);
+void parse(Node* root, TokenArray tokens);
+
+#endif  /* LUMEN_PARSER_H */
