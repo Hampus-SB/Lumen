@@ -1,9 +1,7 @@
 TORCH:
 structs in structs
 pass arguments on stack
-tokenize string literals
 struct function arguments + return
-heap allocations
 refactor
 floats
 string type
@@ -11,14 +9,19 @@ vector type
 validate function arguments
 variable names are local
 scopes
-refactor
 if statements
 refactor
 free heap on failure
 return statement actually exits function
 function to convert type to pointer and reverse
+nested expressions
 
 refactor types
 refactor variable storage
 refactor
 basic pointers
+pointer dereferencing
+refactor
+tokenize string literals
+asm insert builtin
+heap allocations

@@ -24,6 +24,23 @@ const char* keywords[] = {
 
 int line;
 
+// handles escape characters
+void string_literal_fix(char* dest, const char* src) {
+	int dest_i = 0;
+	for (int i = 0; i < strlen(src); i++) {
+		if (src[i] == '\\') {
+			if (src[i + 1] == 't') {
+				dest[dest_i++] = 0x09;  // \t
+			} else if (src[i + 1] == 'n') {
+				dest[dest_i++] = 0x0a;  // \n
+			}
+			i++;
+		} else {
+			dest[dest_i++] = src[i];
+		}
+	}
+}
+
 void token_print(const Token* token) {
 	printf("token: ");
 	if (token->type < 16) {
@@ -36,6 +53,8 @@ void token_print(const Token* token) {
 		printf("'func_name'");
 	} else if (token->type == TOK_INT_LITERAL) {
 		printf("'int_lit'");
+	} else if (token->type == TOK_STRING_LITERAL) {
+		printf("'str_lit'");
 	} else {
 		printf("'balls'");
 	}
@@ -56,6 +75,17 @@ void token_append(TokenArray* tokens, const Token* token) {
 void token_init(const char* str, Token* token, TokenArray* tokens) {
 	token->has_value = 0;  // default to false
 	token->line = line;
+
+	if (str[strlen(str) - 1] == '"') {
+		token->has_value = 1;
+		strncpy(token->value, str, TOKEN_BUFFER_SIZE);
+		token->value[strlen(token->value) - 1] = '\0';
+		token->type = TOK_STRING_LITERAL;
+		char temp[TOKEN_BUFFER_SIZE] = {};
+		string_literal_fix(temp, token->value);
+		strncpy(token->value, temp, TOKEN_BUFFER_SIZE);
+		return;
+	}
 
 	if (types_exists(str)) {
 		token->has_value = 1;
@@ -169,8 +199,25 @@ void tokens_from_source(const char* src, TokenArray* tokens) {
 
 		if (c == '\0') break;  // EOF
 		if (c == '\n') { line++; continue; }  // ignore newline
-		
-		if (c == ';') {
+
+		if (c == '"') {
+			c = src[idx_src++];
+
+			while (c != '"') {
+				// TODO: bounds checking
+				buffer[idx_buf++] = c;
+				c = src[idx_src++];
+			}
+
+			buffer[idx_buf++] = '"';
+			//idx_src++;
+
+			add_token(tokens, buffer);
+
+			memset(buffer, 0, TOKEN_BUFFER_SIZE);
+			idx_buf = 0;
+		}
+		else if (c == ';') {
 			// add token thats currently in buffer
 			add_token(tokens, buffer);
 			memset(buffer, 0, TOKEN_BUFFER_SIZE);

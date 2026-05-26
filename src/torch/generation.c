@@ -91,8 +91,6 @@ void generate_expression(FILE* fh, const Node* node, const char* reg) {
 // takes in node with type operator
 // perform operation
 void generate_operator(FILE* fh, const Node* node) {
-	printf("gen op\n");
-
 	const char* reg1 = register_from_type_obj(node->type_info, 1);
 	const char* reg2 = register_from_type_obj(node->type_info, 2);
 
@@ -186,8 +184,6 @@ void generate_function_call(FILE* fh, const Node* node) {
 }
 
 void generate_struct(FILE* fh, const Node* node) {
-	printf("gen struct\n");
-
 	int previous_offset = 0;
 	if (stack.count[stack._index] != 0) {
 		previous_offset = stack.variables[stack.index - 1].offset;
@@ -224,13 +220,21 @@ void generate_struct(FILE* fh, const Node* node) {
 	}
 }
 
-void generate_statement(FILE* fh, const Node* node) {
-	printf("gen statement\n");
+void generate_assembly_node(FILE* fh, const Node* node) {
+	fprintf(fh, "%s", node->token->value);
+}
 
+void generate_statement(FILE* fh, const Node* node) {
 	if (node->type == NODE_IGNORE) {
 		return;
 	}
 
+	if (node->type == NODE_ASSEMBLY) {
+		generate_assembly_node(fh, node);
+		return;
+	}
+
+	// TODO: maybe use node type instead of token type
 	switch (node->token->type) {
 		case TOK_EXIT:
 			generate_exit(fh, node);
@@ -286,7 +290,13 @@ void generate_statement(FILE* fh, const Node* node) {
 				sprintf(reg + strlen(reg), "%i", offset);
 				strcat(reg, "]");
 
-				generate_expression(fh, &node->children[0], reg);
+				if (types_is_ptr(symbol_table_find_type(node->token->value)) &&
+						!types_is_ptr(node->type_info)) {
+					fprintf(fh, "\tmov [rbp - %i], rax\n", offset);
+					generate_expression(fh, &node->children[0], "[rax]");
+				} else {
+					generate_expression(fh, &node->children[0], reg);
+				}
 
 			} else if (node->children[0].type == NODE_OPERATOR) {
 				generate_operator(fh, &node->children[0]);
@@ -340,7 +350,8 @@ void generate_asm(const Node* root, const char* out_path) {
 		const Node* node = &root->children[i];
 
 		if (node->type != NODE_STATEMENT && node->type != NODE_DECLARATION && 
-				node->type != NODE_DECLARATION_FUNC && node->type != NODE_STRUCT) {
+				node->type != NODE_DECLARATION_FUNC && node->type != NODE_STRUCT &&
+				node->type != NODE_ASSEMBLY) {
 			fprintf(stderr, "Node in root is not a valid type. :%i\n", 
 					node->token->line);
 			return;

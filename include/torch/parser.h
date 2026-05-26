@@ -7,6 +7,8 @@
 #define NODE_CHILDREN_COUNT 8
 #define NODE_ROOT_CHILDREN_COUNT 512
 
+#define BUILTIN_ASSEMBLY_SYMBOL "asm"
+
 typedef enum {
     NODE_IGNORE,
     NODE_DECLARATION,  // variable declaration
@@ -17,6 +19,7 @@ typedef enum {
     NODE_CALL_FUNC,
     NODE_STRUCT,
     NODE_LOCAL_VARIABLE,
+    NODE_ASSEMBLY,
 } NodeType;
 
 typedef struct Node {

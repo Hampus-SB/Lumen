@@ -28,6 +28,7 @@ typedef enum {
     TOK_VARIABLE,
     TOK_FUNC_NAME,
     TOK_INT_LITERAL,
+    TOK_STRING_LITERAL,
 } TokenType;
 
 typedef struct {

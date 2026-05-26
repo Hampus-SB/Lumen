@@ -286,10 +286,22 @@ void parse_variable_declaration(Node* parent) {
 	parse_variable_right_side(node_stmt);
 }
 
-// i is at variable name token
+// i is at variable name token or pointer token
 void parse_variable(Node* parent) {
 	Token* token = parser_peek(0);
-	TypeObj* type = symbol_table_find_type(token->value);
+	TypeObj* type;
+
+	if (token->type == TOK_POINTER) {
+		parser_consume();
+		token = parser_peek(0);
+
+		char temp[TOKEN_BUFFER_SIZE] = {};
+		strncpy(temp, symbol_table_find_type(token->value)->name, TOKEN_BUFFER_SIZE);
+		temp[strlen(temp) - 1] = '\0';
+		type = types_get_type_obj(temp);
+	} else {
+		type = symbol_table_find_type(token->value);
+	}
 
 	Node* node_stmt = &parent->children[parent->len++];
 	node_init(node_stmt, parent, NODE_STATEMENT, token, NODE_CHILDREN_COUNT, type);
@@ -400,6 +412,30 @@ void parse_struct(Node* parent) {
 	symbol_table_append(node_struct);
 }
 
+void parse_assembly(Node* parent) {
+	// consume function name and open paren
+	parser_consume();
+	parser_consume();
+
+	Token* token = parser_peek(0);
+	if (token->type != TOK_STRING_LITERAL) {
+		fprintf(stderr, "Expected string as argument for builtin 'asm'. :%i\n",
+			token->line);
+		arena_free(get_arena());
+		exit(EXIT_FAILURE);
+	}
+
+	TypeObj* type = types_get_type_obj("NULL");
+
+	Node* node_asm = &parent->children[parent->len++];
+	node_init(node_asm, parent, NODE_ASSEMBLY, token, 0, type);
+
+	// consume string literal, close paren and semicolon;
+	parser_consume();
+	parser_consume();
+	parser_consume();
+}
+
 // parse for children of one depth (kind of)
 void parse_node(Node* parent) {
 	Token* token = parser_peek(0);
@@ -416,7 +452,12 @@ void parse_node(Node* parent) {
 		}
 
 		else if (token->type == TOK_FUNC_NAME) {
-			parse_function_call(parent);
+			// builtin asm 'function'
+			if (strcmp(BUILTIN_ASSEMBLY_SYMBOL, token->value) == 0) {
+				parse_assembly(parent);
+			} else {
+				parse_function_call(parent);
+			}
 		}
 
 		else if (token->type == TOK_STRUCT) {
@@ -437,7 +478,7 @@ void parse_node(Node* parent) {
 			}
 		}
 
-		else if (token->type == TOK_VARIABLE) {
+		else if (token->type == TOK_VARIABLE || token->type == TOK_POINTER) {
 			parse_variable(parent);
 		}
 

@@ -55,7 +55,6 @@ int main(int argc, char** argv) {
 
 	parse(&root, tokens);
 	print_tree(&root);
-	print_tree(&root.children[0]);
 	printf("parsed ast\n");
 
 	if (!validate_types(&root)) {
