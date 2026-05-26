@@ -5,35 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define STACK_SIZE 64
-#define VARIABLE_NAME_SIZE 32
-#define MAX_FUNCTIONS 1024
-
-typedef struct {
-	char name[VARIABLE_NAME_SIZE];
-	int offset;  // offset from rbp
-	int size;  // size on stack in bytes
-	TypeObj* type;
-} Variable;
-
-typedef struct {
-	Variable variables[STACK_SIZE];
-	int index;
-
-	// how many variables in i stack
-	int count[MAX_FUNCTIONS];
-	int _index;  // which 'stack'
-} Stack;
-
 Stack stack;
-
-void get_register(const Node* node, char* reg, const int count) {
-	if (count == 1) {
-		strcpy(reg, "eax");
-	} else {
-		strcpy(reg, "ebx");
-	}
-}
 
 // returns the variable offset from rbp
 int get_variable_offset(const Node* node) {
@@ -75,6 +47,33 @@ void generate_expression(FILE* fh, const Node* node, const char* reg) {
 			break;
 		case TOK_VARIABLE:
 			const int offset = get_variable_offset(node);
+
+			// node type_info is a pointer but the variable is not (&var)
+			if (types_is_ptr(node->type_info)) {
+				if (types_is_ptr(symbol_table_find_type(node->token->value))) {
+					// variable is an address
+					fprintf(fh, "\tmov rax, [rbp - %i]\n", offset);
+					fprintf(fh, "\tmov %s, rax\n", reg);
+				} else {
+					// take address of variable
+					fprintf(fh, "\tlea rax, [rbp - %i]\n", offset);
+					fprintf(fh, "\tmov %s, rax\n", reg);
+				}
+				return;
+			}
+
+			// node type_info is not a pointer but the variable is (*var)
+			if (types_is_ptr(symbol_table_find_type(node->token->value))) {
+				fprintf(fh, "\tmov rcx, [rbp - %i]\n", offset);
+				if (reg[0] == '[') {
+					fprintf(fh, "\tmov rdx, [rcx]\n");
+					fprintf(fh, "\tmov %s, rdx\n", reg);
+				} else {
+					fprintf(fh, "\tmov %s, [rcx]\n", reg);
+				}
+				return;
+			}
+
 			if (reg[0] == '[') {
 				fprintf(fh, "\tmov rax, [rbp - %i]\n", offset);
 				fprintf(fh, "\tmov %s, rax\n", reg);
@@ -92,14 +91,14 @@ void generate_expression(FILE* fh, const Node* node, const char* reg) {
 // takes in node with type operator
 // perform operation
 void generate_operator(FILE* fh, const Node* node) {
-	char reg1[4];
-	char reg2[4];
-	get_register(node, reg1, 1);
-	get_register(node, reg2, 2);
+	printf("gen op\n");
+
+	const char* reg1 = register_from_type_obj(node->type_info, 1);
+	const char* reg2 = register_from_type_obj(node->type_info, 2);
 
 	// TODO: potentially grabs wrong bytes from variable target
-	generate_expression(fh, &node->children[0], reg1);
-	generate_expression(fh, &node->children[1], reg2);
+	generate_expression(fh, &node->children[0], "rax");
+	generate_expression(fh, &node->children[1], "rbx");
 
 	// handle idiv and imul
 	if (node->token->type == TOK_ADD)
@@ -273,6 +272,10 @@ void generate_statement(FILE* fh, const Node* node) {
 			}
 
 			if (node->type == NODE_LOCAL_VARIABLE) {
+				return;
+			}
+
+			if (node->len == 0) {
 				return;
 			}
 

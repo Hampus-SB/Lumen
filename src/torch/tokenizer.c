@@ -64,17 +64,24 @@ void token_init(const char* str, Token* token, TokenArray* tokens) {
 		return;
 	}
 
+	if (tokens->count > 0) {
+		if ((tokens->tokens[tokens->count - 1].type == TOK_SEMICOLON ||
+				tokens->tokens[tokens->count - 1].type == TOK_EQUALS ||
+				tokens->tokens[tokens->count - 1].type == TOK_ADD ||
+				tokens->tokens[tokens->count - 1].type == TOK_SUBTRACT ||
+				tokens->tokens[tokens->count - 1].type == TOK_MULTIPLY ||
+				tokens->tokens[tokens->count - 1].type == TOK_DIVIDE) &&
+				strcmp(str, "*") == 0) {
+			token->type = TOK_POINTER;
+			return;
+		}
+	}
+
 	for (int i = 0; i < KEYWORD_COUNT; i++) {
 		if (strcmp(str, keywords[i]) == 0) {
 			token->type = i;
 			return;
 		}
-	}
-
-	if (tokens->tokens[tokens->count - 1].type == TOK_TYPE
-		&& strcmp(str, "*") == 0) {
-		token->type = TOK_POINTER;
-		return;
 	}
 
 	// determine if type is a literal or a variable name
@@ -96,7 +103,7 @@ void token_init(const char* str, Token* token, TokenArray* tokens) {
 	if (tokens->tokens[tokens->count - 1].type == TOK_STRUCT) {
 		token->type = TOK_TYPE;
 		strncpy(token->value, str, TYPE_NAME_SIZE);
-		types_append(token->value);
+		types_append(token->value, BITS_NONE);
 	}
 	else if (int_lit) {
 		token->type = TOK_INT_LITERAL;
@@ -133,7 +140,16 @@ void add_token(TokenArray* tokens, const char* buffer) {
 
 	Token token;
 	token_init(buf, &token, tokens);
-	token_append(tokens, &token);
+	if (tokens->count > 0 &&
+			tokens->tokens[tokens->count - 1].type == TOK_TYPE &&
+			token.type == TOK_ADDRESS) {
+		char temp[TOKEN_BUFFER_SIZE] = {};
+		strcpy(temp, tokens->tokens[tokens->count - 1].value);
+		strcat(temp, "&");
+		token_init(temp, &tokens->tokens[tokens->count - 1], tokens);
+	} else {
+		token_append(tokens, &token);
+	}
 
 	free(buf + offset);
 }

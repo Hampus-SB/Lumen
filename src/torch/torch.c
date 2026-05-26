@@ -55,6 +55,7 @@ int main(int argc, char** argv) {
 
 	parse(&root, tokens);
 	print_tree(&root);
+	print_tree(&root.children[0]);
 	printf("parsed ast\n");
 
 	if (!validate_types(&root)) {
@@ -67,7 +68,7 @@ int main(int argc, char** argv) {
 	generate_asm(&root, "build/a.asm");
 	printf("generated assembly\n");
 
-	system("nasm -felf64 build/a.asm");
+	system("nasm -f elf64 build/a.asm");
 	system("ld build/a.o -o a.out");
 
 	arena_free(get_arena());

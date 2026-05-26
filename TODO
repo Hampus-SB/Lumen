@@ -1,15 +1,12 @@
 TORCH:
 structs in structs
 pass arguments on stack
-refactor variable storage
 tokenize string literals
 struct function arguments + return
 heap allocations
-pointers
 refactor
 floats
 string type
-refactor
 vector type
 validate function arguments
 variable names are local
@@ -19,5 +16,9 @@ if statements
 refactor
 free heap on failure
 return statement actually exits function
+function to convert type to pointer and reverse
 
 refactor types
+refactor variable storage
+refactor
+basic pointers

@@ -54,25 +54,46 @@ void node_init(Node* node, Node* parent, NodeType type, Token* token, int childr
 
 // create expression child node for 'parent'
 void parse_expression(Node* parent) {
-	Node* node_expr = &parent->children[parent->len++];
-	
 	Token* token = parser_peek(0);
 	if (token->type != TOK_VARIABLE &&
-			token->type != TOK_INT_LITERAL) {
+			token->type != TOK_INT_LITERAL &&
+			token->type != TOK_ADDRESS &&
+			token->type != TOK_POINTER) {
 		fprintf(stderr, 
-				"Expected variable or literal token. :%i\n", 
+				"Expected variable or literal token. '%d' :%i\n",
+				token->type,
 				token->line);
 		arena_free(get_arena());
 		exit(EXIT_FAILURE);  // leaks memory
 	}
 
-	// if int literal keep as I64
+	// if int literal keep as i64
 	TypeObj* type = types_get_type_obj("i64");
+
 	if (token->type == TOK_VARIABLE) {
 		type = symbol_table_find_type(token->value);
 	}
+	else if (token->type == TOK_ADDRESS) {
+		parser_consume();
+		token = parser_peek(0);
+
+		char temp[TOKEN_BUFFER_SIZE] = {};
+		strncpy(temp, symbol_table_find_type(token->value)->name, TOKEN_BUFFER_SIZE);
+		strcat(temp, "&");
+		type = types_get_type_obj(temp);
+	}
+	else if (token->type == TOK_POINTER) {
+		parser_consume();
+		token = parser_peek(0);
+
+		char temp[TOKEN_BUFFER_SIZE] = {};
+		strncpy(temp, symbol_table_find_type(token->value)->name, TOKEN_BUFFER_SIZE);
+		temp[strlen(temp) - 1] = '\0';
+		type = types_get_type_obj(temp);
+	}
 
 	// NOTE: children are not allocated for the expression node
+	Node* node_expr = &parent->children[parent->len++];
 	node_init(node_expr, parent, NODE_EXPRESSION, token, 0, type);
 
 	// consume expression token
@@ -84,8 +105,8 @@ void parse_expression(Node* parent) {
 
 // i is at first expression (expr op expr ;)
 void parse_operator(Node* node) {
-	Token* token = parser_peek(1);
-
+	// TODO: might be redundant
+	/*
 	if (token->type != TOK_ADD &&
 			token->type != TOK_SUBTRACT &&
 			token->type != TOK_MULTIPLY &&
@@ -95,10 +116,21 @@ void parse_operator(Node* node) {
 		arena_free(get_arena());
 		exit(EXIT_FAILURE);
 	}
+	*/
+
+	printf("parse op\n");
+
+	// TODO: fix garbage
+	Token* token = parser_peek(1);
+	if (token->type == TOK_POINTER || token->type != TOK_ADDRESS)
+		token = parser_peek(2);
+
+	printf("ABC: %d\n", token->type);
 
 	// type same as parent
 	TypeObj* type = symbol_table_find_type(node->token->value);
-	Node* node_op = &node->children[0];
+	printf("AAA AA: %s\n", type->name);
+	Node* node_op = &node->children[node->len++];
 	node_init(node_op, node, NODE_OPERATOR, token, NODE_CHILDREN_COUNT, type);
 
 	// parse_expression will consume semicolons and such
@@ -174,7 +206,42 @@ void parse_function_call(Node* parent) {
 	}
 }
 
-// i is at variable type token
+// takes in variable / declaration node
+// parser is at variable name token
+void parse_variable_right_side(Node* node) {
+	// consume variable name
+	parser_consume();
+
+	const Token* token = parser_peek(0);
+
+	if (token->type == TOK_SEMICOLON) {
+		parser_consume();
+		return;
+	}
+	if (token->type == TOK_EQUALS) {
+		parser_consume();
+		token = parser_peek(0);
+	}
+
+	if (parser_peek(1)->type == TOK_ADD ||
+			parser_peek(1)->type == TOK_SUBTRACT ||
+			parser_peek(1)->type == TOK_MULTIPLY ||
+			parser_peek(1)->type == TOK_DIVIDE ||
+			parser_peek(2)->type == TOK_ADD ||
+			parser_peek(2)->type == TOK_SUBTRACT ||
+			parser_peek(2)->type == TOK_MULTIPLY ||
+			parser_peek(2)->type == TOK_DIVIDE) {
+		parse_operator(node);
+	}
+	else if (token->type == TOK_FUNC_NAME) {
+		parse_function_call(node);
+	}
+	else {
+		parse_expression(node);
+	}
+}
+
+// parser is at variable type token
 void parse_variable_declaration(Node* parent) {
 	// type token
 	const Token* token_type = parser_peek(0);
@@ -216,40 +283,7 @@ void parse_variable_declaration(Node* parent) {
 		return;
 	}
 
-	if (parser_peek(1)->type == TOK_SEMICOLON) {
-		// consume name and semicolon
-		parser_consume();
-		parser_consume();
-	}
-	else if (parser_peek(3)->type == TOK_SEMICOLON) {
-		// consume variable name and equal sign
-		parser_consume();
-		parser_consume();
-
-		parse_expression(node_stmt);
-	}
-	else if (parser_peek(3)->type == TOK_PAREN_OPEN) {
-		// consume variable name and equal sign
-		parser_consume();
-		parser_consume();
-
-		// parse for function return value
-		parse_function_call(node_stmt);
-	}
-	else if (parser_peek(5)->type == TOK_SEMICOLON) {
-		// consume variable name and equal sign
-		parser_consume();
-		parser_consume();
-
-		parse_operator(node_stmt);
-	}
-	else {
-		fprintf(stderr, 
-				"Missing tokens after variable or misplaced ';'. :%i\n", 
-				parser_peek(0)->line);
-		arena_free(get_arena());
-		exit(EXIT_FAILURE);
-	}
+	parse_variable_right_side(node_stmt);
 }
 
 // i is at variable name token
@@ -260,35 +294,7 @@ void parse_variable(Node* parent) {
 	Node* node_stmt = &parent->children[parent->len++];
 	node_init(node_stmt, parent, NODE_STATEMENT, token, NODE_CHILDREN_COUNT, type);
 
-	if (parser_peek(3)->type == TOK_SEMICOLON) {
-		// consume variable name and equal sign
-		parser_consume();
-		parser_consume();
-
-		parse_expression(node_stmt);
-	}
-	else if (parser_peek(3)->type == TOK_PAREN_OPEN) {
-		// consume variable name and equal sign
-		parser_consume();
-		parser_consume();
-
-		// parse for function return value
-		parse_function_call(node_stmt);
-	}
-	else if (parser_peek(5)->type == TOK_SEMICOLON) {
-		// consume variable name and equal sign
-		parser_consume();
-		parser_consume();
-
-		parse_operator(node_stmt);
-	}
-	else {
-		fprintf(stderr,
-				"Missing tokens after variable or misplaced ';'. :%i\n",
-				parser_peek(0)->line);
-		arena_free(get_arena());
-		exit(EXIT_FAILURE);
-	}
+	parse_variable_right_side(node_stmt);
 }
 
 // forward declare because is C is dogshit
@@ -444,6 +450,7 @@ void parse_node(Node* parent) {
 					"Invalid token type (ignoring). '%d' :%i\n",
 					token->type,
 					token->line);
+			exit(1);
 		}
 
 		token = parser_peek(0);
@@ -462,9 +469,10 @@ void parse(Node* root, const TokenArray tokens) {
 void print_tree(const Node* root) {
 	printf("\nroot length: %d\n", root->len);
 	for (int i = 0; i < root->len; i++) {
-		printf("node type: %d, token type: %d, :%i\n", 
+		printf("node type: %d, token type: %d, children: %d, :%i\n",
 				root->children[i].type,
 				root->children[i].token->type,
+				root->children[i].len,
 				root->children[i].token->line);
 	}
 }
