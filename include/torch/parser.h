@@ -20,6 +20,7 @@ typedef enum {
     NODE_STRUCT,
     NODE_LOCAL_VARIABLE,
     NODE_ASSEMBLY,
+    NODE_INDEX,
 } NodeType;
 
 typedef struct Node {

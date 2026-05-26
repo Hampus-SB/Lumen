@@ -92,7 +92,32 @@ void parse_expression(Node* parent) {
 		type = types_get_type_obj(temp);
 	}
 
-	// NOTE: children are not allocated for the expression node
+	if (parser_peek(1)->type == TOK_BRACKET_OPEN) {
+		char temp[TOKEN_BUFFER_SIZE] = {};
+		strncpy(temp, symbol_table_find_type(token->value)->name, TOKEN_BUFFER_SIZE);
+		temp[strlen(temp) - 1] = '\0';
+		type = types_get_type_obj(temp);
+
+		// consume variable name and open bracket
+		parser_consume();
+		parser_consume();
+
+		Node* node_expr = &parent->children[parent->len++];
+		node_init(node_expr, parent, NODE_EXPRESSION, token, 1, type);
+
+		Token* token_index = parser_peek(0);
+		TypeObj* token_type = types_get_type_obj("i64");
+		Node* node_index = &node_expr->children[node_expr->len++];
+		node_init(node_index, node_expr, NODE_INDEX, token_index, 0, token_type);
+
+		// consume int literal, close bracket and semicolon
+		parser_consume();
+		parser_consume();
+		parser_consume();
+
+		return;
+	}
+
 	Node* node_expr = &parent->children[parent->len++];
 	node_init(node_expr, parent, NODE_EXPRESSION, token, 0, type);
 
@@ -125,11 +150,8 @@ void parse_operator(Node* node) {
 	if (token->type == TOK_POINTER || token->type != TOK_ADDRESS)
 		token = parser_peek(2);
 
-	printf("ABC: %d\n", token->type);
-
 	// type same as parent
 	TypeObj* type = symbol_table_find_type(node->token->value);
-	printf("AAA AA: %s\n", type->name);
 	Node* node_op = &node->children[node->len++];
 	node_init(node_op, node, NODE_OPERATOR, token, NODE_CHILDREN_COUNT, type);
 
@@ -222,6 +244,14 @@ void parse_variable_right_side(Node* node) {
 		parser_consume();
 		token = parser_peek(0);
 	}
+	if (token->type == TOK_BRACKET_OPEN) {
+		parser_consume();
+		parser_consume();
+		parser_consume();
+		parser_consume();
+		token = parser_peek(0);
+		printf("ABC: %s %d\n", token->value, token->type);
+	}
 
 	if (parser_peek(1)->type == TOK_ADD ||
 			parser_peek(1)->type == TOK_SUBTRACT ||
@@ -299,7 +329,26 @@ void parse_variable(Node* parent) {
 		strncpy(temp, symbol_table_find_type(token->value)->name, TOKEN_BUFFER_SIZE);
 		temp[strlen(temp) - 1] = '\0';
 		type = types_get_type_obj(temp);
-	} else {
+	}
+	else if (parser_peek(1)->type == TOK_BRACKET_OPEN) {
+		char temp[TOKEN_BUFFER_SIZE] = {};
+		strncpy(temp, symbol_table_find_type(token->value)->name, TOKEN_BUFFER_SIZE);
+		temp[strlen(temp) - 1] = '\0';
+		type = types_get_type_obj(temp);
+
+		Node* node_stmt = &parent->children[parent->len++];
+		node_init(node_stmt, parent, NODE_STATEMENT, token, NODE_CHILDREN_COUNT, type);
+
+		Token* token_index = parser_peek(2);
+		TypeObj* token_type = types_get_type_obj("i64");
+		Node* node_index = &node_stmt->children[node_stmt->len++];
+		node_init(node_index, node_stmt, NODE_INDEX, token_index, 0, token_type);
+
+		parse_variable_right_side(node_stmt);
+
+		return;
+	}
+	else {
 		type = symbol_table_find_type(token->value);
 	}
 

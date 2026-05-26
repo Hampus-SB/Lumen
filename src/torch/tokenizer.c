@@ -18,7 +18,8 @@
 // the index need to match the TokenType enum
 const char* keywords[] = {
 	"=", "+", "-", "*", "/",
-	"(", ")", "{", "}", ",", "&", "*",
+	"(", ")", "{", "}", "[", "]",
+	",", "&", "*",
 	";", "return", "exit", "struct",
 };
 
@@ -264,6 +265,24 @@ void tokens_from_source(const char* src, TokenArray* tokens) {
 			
 			// add the ) token
 			add_token(tokens, ")");
+		}
+		else if (c == '[') {
+			// add token thats currently in buffer
+			add_token(tokens, buffer);
+			memset(buffer, 0, TOKEN_BUFFER_SIZE);
+			idx_buf = 0;
+
+			// add the ( token
+			add_token(tokens, "[");
+		}
+		else if (c == ']') {
+			// add token thats currently in buffer
+			add_token(tokens, buffer);
+			memset(buffer, 0, TOKEN_BUFFER_SIZE);
+			idx_buf = 0;
+
+			// add the ) token
+			add_token(tokens, "]");
 		}
 		else if (c == ',') {
 			// add token thats currently in buffer

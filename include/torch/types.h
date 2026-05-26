@@ -8,10 +8,10 @@
 
 typedef enum {
     BITS_NONE,
-    BITS_64,
-    BITS_32,
-    BITS_16,
     BITS_8,
+    BITS_16,
+    BITS_32,
+    BITS_64,
 } RegisterSize;
 
 typedef struct {

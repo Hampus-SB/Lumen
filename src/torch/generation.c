@@ -48,6 +48,24 @@ void generate_expression(FILE* fh, const Node* node, const char* reg) {
 		case TOK_VARIABLE:
 			const int offset = get_variable_offset(node);
 
+			// index operator []
+			if (node->len == 1) {
+				char* index = node->children[0].token->value;
+
+				fprintf(fh, "\tmov rax, %i\n", 1);
+				fprintf(fh, "\timul rax, %s\n", index);
+				fprintf(fh, "\tadd rax, [rbp - %i]\n", offset);
+
+				if (reg[0] == '[') {
+					fprintf(fh, "\tmov rax, [rax]\n");
+					fprintf(fh, "\tmov %s, rax\n", reg);
+				} else {
+					fprintf(fh, "\tmov %s, [rax]\n", reg);
+				}
+
+				return;
+			}
+
 			// node type_info is a pointer but the variable is not (&var)
 			if (types_is_ptr(node->type_info)) {
 				if (types_is_ptr(symbol_table_find_type(node->token->value))) {
@@ -283,6 +301,21 @@ void generate_statement(FILE* fh, const Node* node) {
 				return;
 			}
 
+			if (node->children[0].type == NODE_INDEX) {
+				// array indexing
+				printf("array indexing\n");
+
+				const int offset = get_variable_offset(node);
+				char* index = node->children[0].token->value;
+
+				fprintf(fh, "\tmov rax, %i\n", 1);
+				fprintf(fh, "\timul rax, %s\n", index);
+				fprintf(fh, "\tadd rax, [rbp - %i]\n", offset);
+				fprintf(fh, "\tmov [rax], %s\n", node->children[1].token->value);
+
+				return;
+			}
+
 			if (node->children[0].type == NODE_EXPRESSION) {
 				const int offset = get_variable_offset(node);
 				char reg[32] = {};
@@ -292,6 +325,8 @@ void generate_statement(FILE* fh, const Node* node) {
 
 				if (types_is_ptr(symbol_table_find_type(node->token->value)) &&
 						!types_is_ptr(node->type_info)) {
+					// pointer dereference
+					printf("pointer deref\n");
 					fprintf(fh, "\tmov [rbp - %i], rax\n", offset);
 					generate_expression(fh, &node->children[0], "[rax]");
 				} else {
