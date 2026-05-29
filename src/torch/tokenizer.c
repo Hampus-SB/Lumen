@@ -9,18 +9,12 @@
 #include <string.h>
 #include <ctype.h>
 
-#define FUNCTION_SPECIAL '#'
-
-#define MAX_STRUCT_COUNT 32
-
-#define KEYWORD_COUNT 16
-
 // the index need to match the TokenType enum
 const char* keywords[] = {
 	"=", "+", "-", "*", "/",
 	"(", ")", "{", "}", "[", "]",
-	",", "&", "*",
-	";", "return", "exit", "struct",
+	",", "&", "*", ";",
+	"return", "struct",
 };
 
 int line;
@@ -123,7 +117,7 @@ void token_init(const char* str, Token* token, TokenArray* tokens) {
 			if (!isdigit(str[i])) {
 				printf("Invalid syntax. '%s' :%i\n", str, line);
 				arena_free(&arena);
-				exit(EXIT_FAILURE);  // leaks memory
+				exit(EXIT_FAILURE);
 			}
 		}
 		int_lit = 1;

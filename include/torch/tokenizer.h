@@ -6,6 +6,10 @@
 #define TOKEN_DEFAULT_COUNT 256
 #define TOKEN_BUFFER_SIZE 32
 
+#define FUNCTION_SPECIAL '#'
+
+#define KEYWORD_COUNT 17
+
 typedef enum {
     TOK_EQUALS,
     TOK_ADD,
@@ -23,8 +27,8 @@ typedef enum {
     TOK_POINTER,
     TOK_SEMICOLON,
     TOK_RETURN,
-    TOK_EXIT,
     TOK_STRUCT,
+
     TOK_TYPE,
 
     TOK_VARIABLE,

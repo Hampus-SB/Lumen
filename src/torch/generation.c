@@ -30,11 +30,12 @@ int get_variable_offset(const Node* node) {
 // an expression is either a literal or a variable
 // puts value in register
 void generate_expression(FILE* fh, const Node* node, const char* reg) {
-	if (node->type != NODE_EXPRESSION) {
-		fprintf(stderr, "Expected expression node. :%i\n", 
+	if (node->type != NODE_EXPRESSION && node->type != NODE_INDEX) {
+		fprintf(stderr, "Expected expression node. :%i\n",
 				node->token->line);
 		return;
-	} if (!node->token->has_value) {
+	}
+	if (!node->token->has_value) {
 		fprintf(stderr, "Expression token has no value. :%i\n", 
 				node->token->line);
 		return;
@@ -42,7 +43,7 @@ void generate_expression(FILE* fh, const Node* node, const char* reg) {
 
 	switch (node->token->type) {
 		case TOK_INT_LITERAL:
-			fprintf(fh, "\tmov %s, %s\n", reg, node->token->value);
+			fprintf(fh, "\tmov %s, qword %s\n", reg, node->token->value);
 
 			break;
 		case TOK_VARIABLE:
@@ -50,10 +51,10 @@ void generate_expression(FILE* fh, const Node* node, const char* reg) {
 
 			// index operator []
 			if (node->len == 1) {
-				char* index = node->children[0].token->value;
+				//char* index = node->children[0].token->value;
+				generate_expression(fh, &node->children[0], "rax");
 
-				fprintf(fh, "\tmov rax, %i\n", 1);
-				fprintf(fh, "\timul rax, %s\n", index);
+				fprintf(fh, "\timul rax, %i\n", 1);
 				fprintf(fh, "\tadd rax, [rbp - %i]\n", offset);
 
 				if (reg[0] == '[') {
@@ -133,7 +134,7 @@ void generate_operator(FILE* fh, const Node* node) {
 	fprintf(fh, "\tmov [rbp - %i], rax\n", offset);
 }
 
-void generate_statement(FILE*, const Node*);
+void generate_node(FILE*, const Node*);
 
 void generate_function(FILE* fh, const Node* node) {
 	if (node->type != NODE_DECLARATION_FUNC) {
@@ -149,7 +150,7 @@ void generate_function(FILE* fh, const Node* node) {
 	fprintf(fh, "\tmov rbp, rsp\n\n");
 
 	for (int i = 0; i < node->len; i++) {
-		generate_statement(fh, &node->children[i]);
+		generate_node(fh, &node->children[i]);
 		if (node->children[i].type == NODE_LOCAL_VARIABLE) {
 			if (i == 0)
 				fprintf(fh, "\tmov [rbp - %i], rax\n", get_variable_offset(&node->children[i]));
@@ -157,30 +158,27 @@ void generate_function(FILE* fh, const Node* node) {
 				fprintf(fh, "\tmov [rbp - %i], rbx\n", get_variable_offset(&node->children[i]));
 		}
 	}
-
 	fprintf(fh, "\n\tmov rsp, rbp\n");
 	fprintf(fh, "\tpop rbp\n");
 	fprintf(fh, "\tret\n");
 }
 
-void generate_exit(FILE* fh, const Node* node) {
-	fprintf(fh, "\n");
-
-	generate_expression(fh, &node->children[0], "rdi");
-
-	fprintf(fh, "\tmov rax, 60\n");
-	fprintf(fh, "\tsyscall\n");
-}
-
 void generate_return(FILE* fh, const Node* node) {
 	fprintf(fh, "\n");
-	
+
 	generate_expression(fh, &node->children[0], "rax");
+
+	// exit the function
+	fprintf(fh, "\n\tmov rsp, rbp\n");
+	fprintf(fh, "\tpop rbp\n");
+	fprintf(fh, "\tret\n");
 }
 
 void generate_function_call(FILE* fh, const Node* node) {
 	for (int i = 0; i < node->len; i++) {
 		const Node* child = &node->children[i];
+
+		// holy slop
 		if (i == 0)
 			generate_expression(fh, child, "rax");
 		if (i == 1)
@@ -242,130 +240,124 @@ void generate_assembly_node(FILE* fh, const Node* node) {
 	fprintf(fh, "%s", node->token->value);
 }
 
-void generate_statement(FILE* fh, const Node* node) {
-	if (node->type == NODE_IGNORE) {
+// adds the variable to the compiler stack and allocates on the asm stack
+void generate_variable_declaration(FILE* fh, const Node* node) {
+	if (types_is_struct(node->type_info)) {
+		generate_struct(fh, node);
 		return;
 	}
 
-	if (node->type == NODE_ASSEMBLY) {
-		generate_assembly_node(fh, node);
-		return;
+	// get size of variable
+	int previous_offset = 0;
+	if (stack.count[stack._index] != 0) {
+		previous_offset = stack.variables[stack.index - 1].offset;
 	}
 
-	// TODO: maybe use node type instead of token type
-	switch (node->token->type) {
-		case TOK_EXIT:
-			generate_exit(fh, node);
+	// adds variable to compiler stack
+	strcpy(stack.variables[stack.index].name,
+			node->token->value);
+	stack.variables[stack.index].size = 8;
+	stack.variables[stack.index].offset = previous_offset + 8;
+	/*stack.variables[stack.index].offset =
+		(stack.count[stack._index] + 1) * 8;*/
 
+	fprintf(fh, "\tsub rsp, %i  ; %s\n",
+		stack.variables[stack.index].size,
+		stack.variables[stack.index].name);
+	stack.index++;
+	stack.count[stack._index]++;
+}
+
+// TODO: rename this function
+// indexing into arrays, ex. var[0] = 5;
+void generate_index(FILE* fh, const Node* node) {
+	const int offset = get_variable_offset(node->parent);
+
+	generate_expression(fh, node, "rax");
+	generate_expression(fh, &node->parent->children[1], "rbx");
+
+	fprintf(fh, "\timul rax, %i\n", 1);
+	fprintf(fh, "\tadd rax, [rbp - %i]\n", offset);
+	fprintf(fh, "\tmov [rax], qword rbx\n");
+}
+
+// node is "variable" node type
+void generate_right_side(FILE* fh, const Node* node) {
+	const int offset = get_variable_offset(node);
+	char reg[32] = {};
+	strcat(reg, "[rbp - ");
+	sprintf(reg + strlen(reg), "%i", offset);
+	strcat(reg, "]");
+
+	if (types_is_ptr(symbol_table_find_type(node->token->value)) &&
+			!types_is_ptr(node->type_info)) {
+		// pointer dereference
+		fprintf(fh, "\tmov [rbp - %i], rax\n", offset);
+		generate_expression(fh, &node->children[0], "[rax]");
+	}
+	else {
+		generate_expression(fh, &node->children[0], reg);
+	}
+}
+
+void generate_node(FILE* fh, const Node* node) {
+	printf("gen node: type = %d\n", node->type);
+
+	switch (node->type) {
+		case NODE_IGNORE: case NODE_STRUCT:
 			break;
-		case TOK_VARIABLE:
-			if (!node->token->has_value) {
-				fprintf(stderr, 
-						"Variable token does not have a value. %i\n", 
-						node->token->line);
-				return;
-			}
 
-			if (node->type == NODE_DECLARATION || node->type == NODE_LOCAL_VARIABLE) {
-				// get size of variable
-				int previous_offset = 0;
-				if (stack.count[stack._index] != 0) {
-					previous_offset = stack.variables[stack.index - 1].offset;
-				}
-
-				if (types_is_struct(node->type_info)) {
-					generate_struct(fh, node);
-					return;
-				}
-
-				// adds variable to compiler stack
-				strcpy(stack.variables[stack.index].name,
-						node->token->value);
-				stack.variables[stack.index].size = 8;
-				stack.variables[stack.index].offset = previous_offset + 8;
-				/*stack.variables[stack.index].offset =
-					(stack.count[stack._index] + 1) * 8;*/
-
-				fprintf(fh, "\tsub rsp, %i  ; %s\n",
-					stack.variables[stack.index].size,
-					stack.variables[stack.index].name);
-				stack.index++;
-				stack.count[stack._index]++;
-			}
-
-			if (node->type == NODE_LOCAL_VARIABLE) {
-				return;
-			}
-
-			if (node->len == 0) {
-				return;
-			}
-
-			if (node->children[0].type == NODE_INDEX) {
-				// array indexing
-				printf("array indexing\n");
-
-				const int offset = get_variable_offset(node);
-				char* index = node->children[0].token->value;
-
-				fprintf(fh, "\tmov rax, %i\n", 1);
-				fprintf(fh, "\timul rax, %s\n", index);
-				fprintf(fh, "\tadd rax, [rbp - %i]\n", offset);
-				fprintf(fh, "\tmov [rax], %s\n", node->children[1].token->value);
-
-				return;
-			}
-
-			if (node->children[0].type == NODE_EXPRESSION) {
-				const int offset = get_variable_offset(node);
-				char reg[32] = {};
-				strcat(reg, "[rbp - ");
-				sprintf(reg + strlen(reg), "%i", offset);
-				strcat(reg, "]");
-
-				if (types_is_ptr(symbol_table_find_type(node->token->value)) &&
-						!types_is_ptr(node->type_info)) {
-					// pointer dereference
-					printf("pointer deref\n");
-					fprintf(fh, "\tmov [rbp - %i], rax\n", offset);
-					generate_expression(fh, &node->children[0], "[rax]");
-				} else {
-					generate_expression(fh, &node->children[0], reg);
-				}
-
-			} else if (node->children[0].type == NODE_OPERATOR) {
-				generate_operator(fh, &node->children[0]);
-
-			} else if (node->children[0].type == NODE_CALL_FUNC) {
-				generate_function_call(fh, &node->children[0]);
-
-			} else {
-				fprintf(stderr, "Major shitballs 2. Type '%d' :%i\n",
-						node->type,
-						node->token->line);
-				exit(1);
-			}
-
+		case NODE_EXPRESSION:
+			printf("This should not happen 1.\n");
+			generate_expression(fh, node, "oopsie");
 			break;
-		case TOK_FUNC_NAME:
-			if (node->type == NODE_CALL_FUNC) {
-				generate_function_call(fh, node);
-			} else { 
-				generate_function(fh, node);
-			}
 
+		case NODE_OPERATOR:
+			generate_operator(fh, node);
 			break;
-		case TOK_RETURN:
+
+		case NODE_INDEX:
+			generate_index(fh, node);
+			break;
+
+		case NODE_ASSEMBLY:
+			generate_assembly_node(fh, node);
+			break;
+
+		case NODE_RETURN:
 			generate_return(fh, node);
+			break;
 
+		case NODE_CALL_FUNC:
+			generate_function_call(fh, node);
 			break;
-		case TOK_TYPE:
-			// ignore
+
+		case NODE_DECLARATION_FUNC:
+			generate_function(fh, node);
 			break;
+
+		case NODE_DECLARATION: case NODE_LOCAL_VARIABLE:
+			generate_variable_declaration(fh, node);
+			if (!types_is_struct(node->type_info) && node->type != NODE_LOCAL_VARIABLE) {
+				if (node->children[0].type != NODE_EXPRESSION) {
+					generate_node(fh, &node->children[0]);
+				} else {
+					generate_right_side(fh, node);
+				}
+			}
+			break;
+
+		case NODE_STATEMENT:
+			// is a statement guaranteed to have children?
+			if (node->children[0].type != NODE_EXPRESSION) {
+				generate_node(fh, &node->children[0]);
+			} else {
+				generate_right_side(fh, node);
+			}
+			break;
+
 		default:
-			fprintf(stderr, "Unsupported token type. '%d' :%i\n",
-					node->token->type,
-					node->token->line);
+			printf("This should not happen. node type = %d\n", node->type);
 			break;
 	}
 }
@@ -384,6 +376,7 @@ void generate_asm(const Node* root, const char* out_path) {
 	for (int i = 0; i < root->len; i++) {
 		const Node* node = &root->children[i];
 
+		// TODO: might be redundant
 		if (node->type != NODE_STATEMENT && node->type != NODE_DECLARATION && 
 				node->type != NODE_DECLARATION_FUNC && node->type != NODE_STRUCT &&
 				node->type != NODE_ASSEMBLY) {
@@ -392,7 +385,7 @@ void generate_asm(const Node* root, const char* out_path) {
 			return;
 		}
 
-		generate_statement(fh, node);
+		generate_node(fh, node);
 	}
 
 	for (int i = 0; i < stack.index; i++) {

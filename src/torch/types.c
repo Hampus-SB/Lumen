@@ -15,6 +15,7 @@ const char* registers[] = {
 
 void types_append_primitives() {
     types_append("NULL", BITS_NONE);
+    types_append("any", BITS_64);
     types_append("i8", BITS_8);
     types_append("i16", BITS_16);
     types_append("i32", BITS_32);

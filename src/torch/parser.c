@@ -424,12 +424,15 @@ void parse_function_declaration(Node* parent) {
 	parse_node(node_func);
 }
 
+// parser is at return token
 void parse_return(Node* parent) {
+	/*
 	if (parser_peek(2)->type != TOK_SEMICOLON) {
 		fprintf(stderr, "Expected semicolon after return.\n");
 		arena_free(get_arena());
 		exit(EXIT_FAILURE);
 	}
+	*/
 
 	Token* token = parser_peek(0);
 
@@ -438,7 +441,7 @@ void parse_return(Node* parent) {
 
 	// create return node
 	Node* node_ret = &parent->children[parent->len++];
-	node_init(node_ret, parent, NODE_STATEMENT, token, NODE_CHILDREN_COUNT, type);
+	node_init(node_ret, parent, NODE_RETURN, token, 1, type);
 
 	parser_consume();
 	parse_expression(node_ret);
@@ -496,11 +499,7 @@ void parse_node(Node* parent) {
 			return;
 		}
 
-		if (token->type == TOK_EXIT) {
-			parse_exit(parent);
-		}
-
-		else if (token->type == TOK_FUNC_NAME) {
+		if (token->type == TOK_FUNC_NAME) {
 			// builtin asm 'function'
 			if (strcmp(BUILTIN_ASSEMBLY_SYMBOL, token->value) == 0) {
 				parse_assembly(parent);

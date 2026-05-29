@@ -10,7 +10,7 @@
 #define BUILTIN_ASSEMBLY_SYMBOL "asm"
 
 typedef enum {
-    NODE_IGNORE,
+    NODE_IGNORE,  // dont remember what this is for
     NODE_DECLARATION,  // variable declaration
     NODE_STATEMENT,
     NODE_EXPRESSION,
@@ -20,7 +20,8 @@ typedef enum {
     NODE_STRUCT,
     NODE_LOCAL_VARIABLE,
     NODE_ASSEMBLY,
-    NODE_INDEX,
+    NODE_INDEX,  // might remove or something
+    NODE_RETURN,
 } NodeType;
 
 typedef struct Node {

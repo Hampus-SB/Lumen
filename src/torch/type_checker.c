@@ -1,9 +1,19 @@
 #include "../../include/torch/type_checker.h"
 
 #include <stdio.h>
+#include <string.h>
 
 int validate_compare_nodes(const Node* a, const Node* b) {
     if (b->token->type == TOK_INT_LITERAL) {
+        return 1;
+    }
+
+    if (strcmp(a->type_info->name, "any") == 0 || strcmp(b->type_info->name, "any") == 0) {
+        return 1;
+    }
+
+    if ((types_is_ptr(a->type_info) && types_is_ptr(b->type_info)) &&
+        (strcmp(a->type_info->name, "any&") == 0 || strcmp(b->type_info->name, "any&") == 0)) {
         return 1;
     }
 
@@ -32,6 +42,9 @@ int validate_node(const Node* node) {
             }
             return 1;
         case NODE_STATEMENT:
+            if (node->children[0].type == NODE_INDEX) {
+                return 1;
+            }
             if (node->children[0].type == NODE_OPERATOR) {
                 return validate_node(&node->children[0]);
             }

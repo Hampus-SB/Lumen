@@ -12,9 +12,13 @@ scopes
 if statements
 refactor
 free heap on failure
-return statement actually exits function
 function to convert type to pointer and reverse
 nested expressions
+comments
+primitive imports
+proper imports
+overflows
+tests
 
 refactor types
 refactor variable storage
@@ -25,3 +29,7 @@ refactor
 tokenize string literals
 asm insert builtin
 heap allocations
+index with variables
+return with expression
+return statement actually exits function
+universal pointer type
