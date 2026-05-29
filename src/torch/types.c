@@ -40,6 +40,8 @@ void types_free() {
     if (types.types) {
         free(types.types);
     }
+    types.count = 0;
+    types.capacity = TYPES_DEFAULT_CAPACITY;
 }
 
 void types_append(const char* name, RegisterSize size) {
@@ -66,8 +68,8 @@ void types_append(const char* name, RegisterSize size) {
     type_ptr.size = BITS_64;
     types.types[types.count++] = type_ptr;
 
-    printf("NEW TYPE ADDED: '%s'\n", type.name);
-    printf("NEW TYPE ADDED: '%s'\n", type_ptr.name);
+    //printf("NEW TYPE ADDED: '%s'\n", type.name);
+    //printf("NEW TYPE ADDED: '%s'\n", type_ptr.name);
 }
 
 TypeObj* types_get_type_obj(const char* name) {

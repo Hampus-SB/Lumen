@@ -12,6 +12,14 @@ void symbol_table_init() {
     symbol_table.len = 0;
 }
 
+void symbol_table_free() {
+    if (symbol_table.symbols) {
+        free(symbol_table.symbols);
+    }
+    symbol_table.capacity = DEFAULT_SYMBOL_COUNT;
+    symbol_table.len = 0;
+}
+
 void symbol_table_append(Node* node) {
     if (symbol_table.len >= symbol_table.capacity) {
         symbol_table.capacity *= 2;
@@ -37,8 +45,8 @@ void symbol_table_append(Node* node) {
         printf("Invalid node to create symbol. :%i\n", node->token->line);
     }
 
-    printf("Added symbol '%s', '%s' | %p\n", symbol->name,
-        symbol->node->type_info->name, symbol->node);
+    //printf("Added symbol '%s', '%s' | %p\n", symbol->name,
+    //    symbol->node->type_info->name, symbol->node);
 }
 
 Node* symbol_table_find_struct(const TypeObj* type) {

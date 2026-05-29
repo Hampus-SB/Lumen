@@ -1,0 +1,19 @@
+ui32 foo() {
+    return 10;
+}
+
+ui32 bar(ui32 x, ui32 y) {
+    ui32 z = x + y;
+    return z;
+}
+
+ui32 roof() {
+    ui32 q = 5;
+    q = 10;
+}
+
+ui32 main() {
+    ui32 a = foo();
+    ui32 b = bar(1, 2);
+    roof();
+}

@@ -1,0 +1,31 @@
+ui64 exit(any code) {
+    asm("\tmov rax, 60\n");
+    asm("\tmov rdi, [rbp - 8]\n");
+    asm("\tsyscall\n");
+}
+
+any &mem_alloc(ui64 size_bytes) {
+    asm("\tmov rdi, 0\n");
+    asm("\tmov rsi, [rbp - 8]\n");
+    asm("\tmov rdx, 0x1\n");
+    asm("\tor rdx, 0x2\n");
+    asm("\tmov r10, 0x2\n");
+    asm("\tor r10, 0x20\n");
+    asm("\tmov r8, -1\n");
+    asm("\tmov r9, 0\n");
+    asm("\tmov rax, 9\n");
+    asm("\tsyscall\n");
+}
+
+struct string {
+    ui8 &str;
+    ui64 length;
+    ui64 capacity;
+}
+
+ui8 main() {
+    string s;
+    s.str = mem_alloc(4096);
+    s.length = 0;
+    s.capacity = 4096;
+}

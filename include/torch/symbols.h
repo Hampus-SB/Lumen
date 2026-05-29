@@ -26,6 +26,7 @@ typedef struct {
 } SymbolTable;
 
 void symbol_table_init();
+void symbol_table_free();
 void symbol_table_append(Node* node);
 
 // get node of func decl or struct decl

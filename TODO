@@ -18,7 +18,6 @@ comments
 primitive imports
 proper imports
 overflows
-tests
 
 refactor types
 refactor variable storage
@@ -33,3 +32,4 @@ index with variables
 return with expression
 return statement actually exits function
 universal pointer type
+basic tests

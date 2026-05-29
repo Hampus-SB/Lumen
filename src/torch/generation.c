@@ -19,8 +19,7 @@ int get_variable_offset(const Node* node) {
 		}
 	}
 
-	fprintf(stderr,
-			"Variable name does not exist.. '%s' :%i\n",
+	printf("ERROR: Variable name does not exist.. '%s' :%i\n",
 			node->token->value,
 			node->token->line);
 
@@ -31,12 +30,12 @@ int get_variable_offset(const Node* node) {
 // puts value in register
 void generate_expression(FILE* fh, const Node* node, const char* reg) {
 	if (node->type != NODE_EXPRESSION && node->type != NODE_INDEX) {
-		fprintf(stderr, "Expected expression node. :%i\n",
+		printf("ERROR: Expected expression node. :%i\n",
 				node->token->line);
 		return;
 	}
 	if (!node->token->has_value) {
-		fprintf(stderr, "Expression token has no value. :%i\n", 
+		printf("ERROR: Expression token has no value. :%i\n",
 				node->token->line);
 		return;
 	}
@@ -102,7 +101,7 @@ void generate_expression(FILE* fh, const Node* node, const char* reg) {
 			break;
 
 		default:
-			fprintf(stderr, "Node type unsupported.\n");
+			printf("ERROR: Node type unsupported.\n");
 			break;
 	}
 }
@@ -127,7 +126,7 @@ void generate_operator(FILE* fh, const Node* node) {
 	else if (node->token->type == TOK_DIVIDE)
 		fprintf(fh, "\tdiv %s, %s\n", reg1, reg2);
 	else
-		fprintf(stderr, "Bowser Jr. :%i\n",
+		printf("ERROR: Bowser Jr. :%i\n",
 				node->token->line);
 
 	const int offset = get_variable_offset(node->parent);
@@ -138,7 +137,7 @@ void generate_node(FILE*, const Node*);
 
 void generate_function(FILE* fh, const Node* node) {
 	if (node->type != NODE_DECLARATION_FUNC) {
-		fprintf(stderr, "Expected function declaration. :%i\n", 
+		printf("ERROR: Expected function declaration. :%i\n",
 				node->token->line);
 		return;
 	}
@@ -301,7 +300,7 @@ void generate_right_side(FILE* fh, const Node* node) {
 }
 
 void generate_node(FILE* fh, const Node* node) {
-	printf("gen node: type = %d\n", node->type);
+	//printf("gen node: type = %d\n", node->type);
 
 	switch (node->type) {
 		case NODE_IGNORE: case NODE_STRUCT:
@@ -365,7 +364,7 @@ void generate_node(FILE* fh, const Node* node) {
 void generate_asm(const Node* root, const char* out_path) {
 	FILE* fh = fopen(out_path, "w");
 	if (fh == NULL) {
-		fprintf(stderr, "Failed to create output file.\n");
+		printf("ERROR: Failed to create output file.\n");
 		return;
 	}
 
@@ -380,16 +379,12 @@ void generate_asm(const Node* root, const char* out_path) {
 		if (node->type != NODE_STATEMENT && node->type != NODE_DECLARATION && 
 				node->type != NODE_DECLARATION_FUNC && node->type != NODE_STRUCT &&
 				node->type != NODE_ASSEMBLY) {
-			fprintf(stderr, "Node in root is not a valid type. :%i\n", 
+			printf("ERROR: Node in root is not a valid type. :%i\n",
 					node->token->line);
 			return;
 		}
 
 		generate_node(fh, node);
-	}
-
-	for (int i = 0; i < stack.index; i++) {
-		printf("name: '%s', %i\n", stack.variables[i].name, stack.variables[i].size);
 	}
 
 	fprintf(fh, "\n_start:\n");

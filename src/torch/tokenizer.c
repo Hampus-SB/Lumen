@@ -115,7 +115,7 @@ void token_init(const char* str, Token* token, TokenArray* tokens) {
 	if (isdigit(str[0])) {
 		for (int i = 1; i < strlen(str); i++) {
 			if (!isdigit(str[i])) {
-				printf("Invalid syntax. '%s' :%i\n", str, line);
+				printf("ERROR: Invalid syntax. '%s' :%i\n", str, line);
 				arena_free(&arena);
 				exit(EXIT_FAILURE);
 			}

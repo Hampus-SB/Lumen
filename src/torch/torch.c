@@ -5,6 +5,7 @@
 #include "../../include/torch/symbols.h"
 #include "../../include/torch/type_checker.h"
 #include "../../include/torch/generation.h"
+#include "../../include/torch/tests.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,6 +19,8 @@ int main(int argc, char** argv) {
 		printf("No source file given.\n");
 		exit(EXIT_FAILURE);
 	}
+
+	test_programs();
 
 	FILE* fh = fopen(argv[1], "r");
 	if (fh == NULL) {
@@ -45,7 +48,7 @@ int main(int argc, char** argv) {
 
 	tokens_from_source(file, &tokens);
 	for (int i = 0; i < tokens.count; i++) {
-		token_print(&tokens.tokens[i]);
+		//token_print(&tokens.tokens[i]);
 	}
 	printf("generated tokens\n");
 
@@ -54,8 +57,8 @@ int main(int argc, char** argv) {
 	root.len = 0;
 
 	parse(&root, tokens);
-	print_tree(&root);
-	print_tree(&root.children[1]);
+	//print_tree(&root);
+	//print_tree(&root.children[1]);
 	printf("parsed ast\n");
 
 	if (!validate_types(&root)) {

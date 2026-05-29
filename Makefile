@@ -1,6 +1,6 @@
-torch: src/torch/torch.c src/torch/generation.c src/torch/parser.c src/torch/type_checker.c src/torch/tokenizer.c src/torch/types.c src/torch/symbols.c
+torch: src/torch/torch.c src/torch/tests.c src/torch/generation.c src/torch/parser.c src/torch/type_checker.c src/torch/tokenizer.c src/torch/types.c src/torch/symbols.c
 	mkdir -p build
-	cc src/torch/torch.c src/torch/generation.c src/torch/parser.c src/torch/type_checker.c src/torch/tokenizer.c src/torch/types.c src/torch/symbols.c -o build/torch
+	cc src/torch/torch.c src/torch/tests.c src/torch/generation.c src/torch/parser.c src/torch/type_checker.c src/torch/tokenizer.c src/torch/types.c src/torch/symbols.c -o build/torch
 	./build/torch x.lu
 
 ember: src/ember/lexer.h src/ember/lexer.c src/ember/main.c

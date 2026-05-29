@@ -22,10 +22,10 @@ void parser_init(const TokenArray tokens) {
 Token* parser_peek(int offset) {
 	// bounds check
 	if (parser.i + offset >= (int)parser.tokens.count) {
-		printf("parser_peek(): index out of bounds.\n");
-		printf("parser.i: %d\n", parser.i);
-		printf("offset: %d\n", offset);
-		printf("tokens.count: %zu\n", parser.tokens.count);
+		printf("WARNING: parser_peek(): index out of bounds.\n");
+		//printf("parser.i: %d\n", parser.i);
+		//printf("offset: %d\n", offset);
+		//printf("tokens.count: %zu\n", parser.tokens.count);
 		return NULL;
 	}
 	return &parser.tokens.tokens[parser.i + offset];
@@ -35,7 +35,7 @@ Token* parser_peek(int offset) {
 Token* parser_consume() {
 	// bounds check
 	if (parser.i - 1 >= (int)parser.tokens.count) {
-		printf("parser_consume(): index out of bounds.\n");
+		printf("WARNING: parser_consume(): index out of bounds.\n");
 		return NULL;
 	}
 	return &parser.tokens.tokens[parser.i++];
@@ -59,8 +59,7 @@ void parse_expression(Node* parent) {
 			token->type != TOK_INT_LITERAL &&
 			token->type != TOK_ADDRESS &&
 			token->type != TOK_POINTER) {
-		fprintf(stderr, 
-				"Expected variable or literal token. '%d' :%i\n",
+		printf("ERROR: Expected variable or literal token. '%d' :%i\n",
 				token->type,
 				token->line);
 		arena_free(get_arena());
@@ -143,11 +142,9 @@ void parse_operator(Node* node) {
 	}
 	*/
 
-	printf("parse op\n");
-
 	// TODO: fix garbage
 	Token* token = parser_peek(1);
-	if (token->type == TOK_POINTER || token->type != TOK_ADDRESS)
+	if (token->type == TOK_POINTER || token->type == TOK_ADDRESS)
 		token = parser_peek(2);
 
 	// type same as parent
@@ -163,7 +160,7 @@ void parse_operator(Node* node) {
 // i is at exit token
 void parse_exit(Node* parent) {
 	if (parser_peek(2)->type != TOK_SEMICOLON) {
-		fprintf(stderr, "Expected semicolon after exit.\n");
+		printf("ERROR: Expected semicolon after exit.\n");
 		arena_free(get_arena());
 		exit(EXIT_FAILURE);
 	}
@@ -200,7 +197,7 @@ void parse_function_call(Node* parent) {
 		}
 
 		if (child_token->type != TOK_VARIABLE && child_token->type != TOK_INT_LITERAL) {
-			fprintf(stderr, "Expected variable or literal token. %d. :%i\n",
+			printf("ERROR: Expected variable or literal token. %d. :%i\n",
 				child_token->type, child_token->line);
 			arena_free(get_arena());
 			exit(EXIT_FAILURE);
@@ -250,7 +247,6 @@ void parse_variable_right_side(Node* node) {
 		parser_consume();
 		parser_consume();
 		token = parser_peek(0);
-		printf("ABC: %s %d\n", token->value, token->type);
 	}
 
 	if (parser_peek(1)->type == TOK_ADD ||
@@ -387,7 +383,7 @@ void parse_function_declaration(Node* parent) {
 		}
 
 		if (child_token->type != TOK_TYPE) {
-			fprintf(stderr, "Incorrect argument syntax. Expected type. :%i\n", child_token->line);
+			printf("ERROR: Incorrect argument syntax. Expected type. :%i\n", child_token->line);
 			arena_free(get_arena());
 			exit(EXIT_FAILURE);
 		}
@@ -398,7 +394,7 @@ void parse_function_declaration(Node* parent) {
 
 		child_token = parser_peek(0);
 		if (child_token->type != TOK_VARIABLE) {
-			fprintf(stderr, "Incorrect argument syntax. Expected variable :%i\n", child_token->line);
+			printf("ERROR: Incorrect argument syntax. Expected variable :%i\n", child_token->line);
 			arena_free(get_arena());
 			exit(EXIT_FAILURE);
 		}
@@ -471,7 +467,7 @@ void parse_assembly(Node* parent) {
 
 	Token* token = parser_peek(0);
 	if (token->type != TOK_STRING_LITERAL) {
-		fprintf(stderr, "Expected string as argument for builtin 'asm'. :%i\n",
+		printf("ERROR: Expected string as argument for builtin 'asm'. :%i\n",
 			token->line);
 		arena_free(get_arena());
 		exit(EXIT_FAILURE);
@@ -520,8 +516,7 @@ void parse_node(Node* parent) {
 				parse_variable_declaration(parent);
 			}
 			else {
-				fprintf(stderr, 
-						"Unknown or missing token after type specifier. :%i\n", 
+				printf("ERROR: Unknown or missing token after type specifier. :%i\n",
 						token->line);
 			}
 		}
@@ -535,8 +530,7 @@ void parse_node(Node* parent) {
 		}
 		
 		else {
-			fprintf(stderr, 
-					"Invalid token type (ignoring). '%d' :%i\n",
+			printf("WARNING: Invalid token type (ignoring). '%d' :%i\n",
 					token->type,
 					token->line);
 			exit(1);
