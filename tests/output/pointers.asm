@@ -19,6 +19,23 @@ main:
 	mov rdx, [rcx]
 	mov [rbp - 24], rdx
 
+	sub rsp, 24  ; s1
+	sub rsp, 8  ; s2
+	lea rax, [rbp - 32]
+	mov [rbp - 56], rax
+	mov [rbp - 32], qword 1
+	mov [rbp - 40], qword 2
+	mov [rbp - 48], qword 3
+	mov rax, [rbp - 56]
+	sub rax, 0
+	mov [rax], qword 4
+	mov rax, [rbp - 56]
+	sub rax, 8
+	mov [rax], qword 5
+	mov rax, [rbp - 56]
+	sub rax, 16
+	mov [rax], qword 6
+
 	mov rsp, rbp
 	pop rbp
 	ret

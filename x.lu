@@ -23,9 +23,14 @@ struct string {
     ui64 capacity;
 }
 
+ui64 string_print(ui8 &__str, ui64 __length) {
+    asm("\tmov rax, 1\n");
+    asm("\tmov rdi, rax\n");
+    asm("\tmov rsi, [rbp - 8]\n");
+    asm("\tmov rdx, [rbp - 16]\n");
+    asm("\tsyscall\n");
+}
+
 ui8 main() {
     string s;
-    s.str = mem_alloc(4096);
-    s.length = 0;
-    s.capacity = 4096;
 }

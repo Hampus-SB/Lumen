@@ -1,0 +1,16 @@
+struct S {
+    ui64 x;
+    ui64 y;
+    ui64 z;
+}
+
+ui64 foo(S &a) {
+    a->y = 5;
+}
+
+ui64 main() {
+    S s;
+    foo(&s);
+
+    return s.y;
+}

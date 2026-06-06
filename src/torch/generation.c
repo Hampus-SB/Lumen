@@ -4,8 +4,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "logging.h"
 
 Stack stack;
+
+void stack_init() {
+	stack.index = 0;
+	for (int i = 0; i < MAX_FUNCTIONS; i++) {
+		stack.count[i] = 0;
+	}
+	stack._index = 0;
+}
 
 // returns the variable offset from rbp
 int get_variable_offset(const Node* node) {
@@ -19,7 +28,26 @@ int get_variable_offset(const Node* node) {
 		}
 	}
 
-	printf("ERROR: Variable name does not exist.. '%s' :%i\n",
+	logerror("Variable name does not exist. '%s' :%i",
+			node->token->value,
+			node->token->line);
+
+	return offset;
+}
+
+// returns the variable offset from base of struct
+int get_variable_struct_offset(const Node* node) {
+	int offset = -1;
+
+	for (int i = 0; i <= stack.index; i++) {
+		if (strcmp(stack.variables[i].name,
+					node->token->value) == 0) {
+			offset = stack.variables[i].struct_offset;
+			return offset;
+		}
+	}
+
+	logerror("Variable name does not exist. '%s' :%i",
 			node->token->value,
 			node->token->line);
 
@@ -30,12 +58,12 @@ int get_variable_offset(const Node* node) {
 // puts value in register
 void generate_expression(FILE* fh, const Node* node, const char* reg) {
 	if (node->type != NODE_EXPRESSION && node->type != NODE_INDEX) {
-		printf("ERROR: Expected expression node. :%i\n",
+		logerror("Expected expression node. :%i",
 				node->token->line);
 		return;
 	}
 	if (!node->token->has_value) {
-		printf("ERROR: Expression token has no value. :%i\n",
+		logerror("Expression token has no value. :%i",
 				node->token->line);
 		return;
 	}
@@ -75,7 +103,8 @@ void generate_expression(FILE* fh, const Node* node, const char* reg) {
 				} else {
 					// take address of variable
 					fprintf(fh, "\tlea rax, [rbp - %i]\n", offset);
-					fprintf(fh, "\tmov %s, rax\n", reg);
+					if (strcmp(reg, "rax") != 0)
+						fprintf(fh, "\tmov %s, rax\n", reg);
 				}
 				return;
 			}
@@ -101,7 +130,7 @@ void generate_expression(FILE* fh, const Node* node, const char* reg) {
 			break;
 
 		default:
-			printf("ERROR: Node type unsupported.\n");
+			logerror("Node type unsupported.");
 			break;
 	}
 }
@@ -126,7 +155,7 @@ void generate_operator(FILE* fh, const Node* node) {
 	else if (node->token->type == TOK_DIVIDE)
 		fprintf(fh, "\tdiv %s, %s\n", reg1, reg2);
 	else
-		printf("ERROR: Bowser Jr. :%i\n",
+		logerror("Bowser Jr. :%i",
 				node->token->line);
 
 	const int offset = get_variable_offset(node->parent);
@@ -137,7 +166,7 @@ void generate_node(FILE*, const Node*);
 
 void generate_function(FILE* fh, const Node* node) {
 	if (node->type != NODE_DECLARATION_FUNC) {
-		printf("ERROR: Expected function declaration. :%i\n",
+		logerror("Expected function declaration. :%i",
 				node->token->line);
 		return;
 	}
@@ -149,12 +178,17 @@ void generate_function(FILE* fh, const Node* node) {
 	fprintf(fh, "\tmov rbp, rsp\n\n");
 
 	for (int i = 0; i < node->len; i++) {
+		loginfo("%d, %p", node->len, &node->children[i]);
 		generate_node(fh, &node->children[i]);
 		if (node->children[i].type == NODE_LOCAL_VARIABLE) {
 			if (i == 0)
 				fprintf(fh, "\tmov [rbp - %i], rax\n", get_variable_offset(&node->children[i]));
 			if (i == 1)
 				fprintf(fh, "\tmov [rbp - %i], rbx\n", get_variable_offset(&node->children[i]));
+		} else {
+			logwarning("Expected local variable node. '%d' :%i",
+				node->type,
+				node->token->line);
 		}
 	}
 	fprintf(fh, "\n\tmov rsp, rbp\n");
@@ -168,7 +202,7 @@ void generate_return(FILE* fh, const Node* node) {
 	generate_expression(fh, &node->children[0], "rax");
 
 	// exit the function
-	fprintf(fh, "\n\tmov rsp, rbp\n");
+	fprintf(fh, "\tmov rsp, rbp\n");
 	fprintf(fh, "\tpop rbp\n");
 	fprintf(fh, "\tret\n");
 }
@@ -205,15 +239,38 @@ void generate_struct(FILE* fh, const Node* node) {
 	}
 
 	const TypeObj* type = node->type_info;
+	const Node* struct_node = symbol_table_find_struct(type);
+	int struct_size = 0;
 
-	if (types_is_struct(type)) {
-		const Node* struct_node = symbol_table_find_struct(type);
-		int struct_size = 0;
+	// adds variable to compiler stack
+	strcpy(stack.variables[stack.index].name,
+			node->token->value);
+	stack.variables[stack.index].size = 8;
+	stack.variables[stack.index].offset = previous_offset + 8;
+	if (types_is_ptr(type)) {
+		previous_offset += 8;
+	}
 
-		for (int i = 0; i < struct_node->len; i++) {
-			const Token* member_token = struct_node->children[i].token;
+	stack.index++;
+	stack.count[stack._index]++;
 
-			char temp[32] = {};
+	for (int i = 0; i < struct_node->len; i++) {
+		const Token* member_token = struct_node->children[i].token;
+
+		char temp[TOKEN_BUFFER_SIZE] = {};
+		if (types_is_ptr(type)) {
+			sprintf(temp, "%s->%s", node->token->value, member_token->value);
+
+			// adds variable to compiler stack
+			strcpy(stack.variables[stack.index].name,
+					temp);
+			stack.variables[stack.index].size = 0;
+			stack.variables[stack.index].offset = previous_offset;
+			stack.variables[stack.index].struct_offset = i * 8;
+
+			stack.index++;
+			stack.count[stack._index]++;
+		} else {
 			sprintf(temp, "%s.%s", node->token->value, member_token->value);
 
 			// adds variable to compiler stack
@@ -229,10 +286,14 @@ void generate_struct(FILE* fh, const Node* node) {
 
 			previous_offset = stack.variables[stack.index - 1].offset;
 		}
-
-		fprintf(fh, "\tsub rsp, %i  ; %s\n", struct_size,
-			node->token->value);
 	}
+
+	if (types_is_ptr(type)) {
+		struct_size = 8;
+	}
+
+	fprintf(fh, "\tsub rsp, %i  ; %s\n", struct_size,
+		node->token->value);
 }
 
 void generate_assembly_node(FILE* fh, const Node* node) {
@@ -294,6 +355,14 @@ void generate_right_side(FILE* fh, const Node* node) {
 		fprintf(fh, "\tmov [rbp - %i], rax\n", offset);
 		generate_expression(fh, &node->children[0], "[rax]");
 	}
+	else if (types_is_arrow(node->token->value)) {
+		const int struct_offset = get_variable_struct_offset(node);
+		fprintf(fh, "\tmov rax, [rbp - %i]\n", offset);
+		fprintf(fh, "\tsub rax, %i\n", struct_offset);
+
+		// rax contains the memory address of the member we want to access
+		generate_expression(fh, &node->children[0], "[rax]");
+	}
 	else {
 		generate_expression(fh, &node->children[0], reg);
 	}
@@ -307,7 +376,7 @@ void generate_node(FILE* fh, const Node* node) {
 			break;
 
 		case NODE_EXPRESSION:
-			printf("This should not happen 1.\n");
+			logwarning("This should not happen 1.");
 			generate_expression(fh, node, "oopsie");
 			break;
 
@@ -335,12 +404,22 @@ void generate_node(FILE* fh, const Node* node) {
 			generate_function(fh, node);
 			break;
 
-		case NODE_DECLARATION: case NODE_LOCAL_VARIABLE:
+		case NODE_LOCAL_VARIABLE:
 			generate_variable_declaration(fh, node);
-			if (!types_is_struct(node->type_info) && node->type != NODE_LOCAL_VARIABLE) {
+			break;
+
+		case NODE_DECLARATION:
+			generate_variable_declaration(fh, node);
+			if (!types_is_struct(node->type_info)) {
 				if (node->children[0].type != NODE_EXPRESSION) {
 					generate_node(fh, &node->children[0]);
 				} else {
+					generate_right_side(fh, node);
+				}
+			}
+			else {
+				// wonky
+				if (types_is_ptr(node->type_info)) {
 					generate_right_side(fh, node);
 				}
 			}
@@ -356,7 +435,7 @@ void generate_node(FILE* fh, const Node* node) {
 			break;
 
 		default:
-			printf("This should not happen. node type = %d\n", node->type);
+			logwarning("This should not happen 2. node type = %d", node->type);
 			break;
 	}
 }
@@ -364,13 +443,12 @@ void generate_node(FILE* fh, const Node* node) {
 void generate_asm(const Node* root, const char* out_path) {
 	FILE* fh = fopen(out_path, "w");
 	if (fh == NULL) {
-		printf("ERROR: Failed to create output file.\n");
+		logerror("Failed to create output file.");
 		return;
 	}
 
 	fprintf(fh, "global _start\n");
-	stack.index = 0;
-	stack._index = 0;
+	stack_init();
 
 	for (int i = 0; i < root->len; i++) {
 		const Node* node = &root->children[i];
@@ -379,8 +457,9 @@ void generate_asm(const Node* root, const char* out_path) {
 		if (node->type != NODE_STATEMENT && node->type != NODE_DECLARATION && 
 				node->type != NODE_DECLARATION_FUNC && node->type != NODE_STRUCT &&
 				node->type != NODE_ASSEMBLY) {
-			printf("ERROR: Node in root is not a valid type. :%i\n",
-					node->token->line);
+			logerror("Node in root is not a valid type. '%d' :%i",
+				node->type,
+				node->token->line);
 			return;
 		}
 

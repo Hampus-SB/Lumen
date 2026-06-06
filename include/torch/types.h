@@ -37,6 +37,7 @@ TypeObj* types_get_type_obj(const char* name);
 int types_is_struct(const TypeObj* type);
 int types_exists(const char* name);
 int types_is_ptr(const TypeObj* type);
+int types_is_arrow(const char* name);
 
 const char* register_from_type_obj(const TypeObj* type, int count);
 

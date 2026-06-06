@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "logging.h"
 
 Types types;
 
@@ -49,7 +50,7 @@ void types_append(const char* name, RegisterSize size) {
         types.capacity *= 2;
         types.types = realloc(types.types, types.capacity);
         if (!types.types) {
-            printf("types realloc failed\n");
+            logwarning("types realloc failed.");
         }
     }
 
@@ -78,7 +79,7 @@ TypeObj* types_get_type_obj(const char* name) {
             return &types.types[i];
         }
     }
-    fprintf(stderr, "No type with the name '%s'.\n", name);
+    logerror("No type with the name '%s'.", name);
     return NULL;
 }
 
@@ -99,6 +100,17 @@ int types_exists(const char* name) {
 
 int types_is_ptr(const TypeObj* type) {
     return type->name[strlen(type->name) - 1] == '&';
+}
+
+int types_is_arrow(const char* name) {
+    for (int c = 0; c < strlen(name); c++) {
+        if (c + 1 >= strlen(name))
+            break;
+        if (name[c] == '-' && name[c + 1] == '>') {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 const char* register_from_type_obj(const TypeObj* type, int count) {

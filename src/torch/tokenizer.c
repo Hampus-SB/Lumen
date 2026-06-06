@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include "logging.h"
 
 // the index need to match the TokenType enum
 const char* keywords[] = {
@@ -37,26 +38,38 @@ void string_literal_fix(char* dest, const char* src) {
 }
 
 void token_print(const Token* token) {
-	printf("token: ");
-	if (token->type < 16) {
-		printf("'%s', %d", keywords[token->type], token->type);
+	char output[128] = {0};
+	strcat(output, "token: ");
+
+	char temp[32] = {0};
+
+	if (token->type < 17) {
+		sprintf(temp, "'%s', %d", keywords[token->type], token->type);
+		strcat(output, temp);
 	} else if (token->type == TOK_TYPE) {
-		printf("'type'");
+		sprintf(temp, "'type'");
+		strcat(output, temp);
 	}else if (token->type == TOK_VARIABLE) {
-		printf("'variable'");
+		sprintf(temp, "'variable'");
+		strcat(output, temp);
 	} else if (token->type == TOK_FUNC_NAME) {
-		printf("'func_name'");
+		sprintf(temp, "'func_name'");
+		strcat(output, temp);
 	} else if (token->type == TOK_INT_LITERAL) {
-		printf("'int_lit'");
+		sprintf(temp, "'int_lit'");
+		strcat(output, temp);
 	} else if (token->type == TOK_STRING_LITERAL) {
-		printf("'str_lit'");
+		sprintf(temp, "'str_lit'");
+		strcat(output, temp);
 	} else {
-		printf("'balls'");
+		sprintf(temp, "'balls'");
+		strcat(output, temp);
 	}
 	if (token->has_value) {
-		printf(", '%s'", token->value);
+		sprintf(temp, ", '%s'", token->value);
+		strcat(output, temp);
 	}
-	printf("\n");
+	loginfo("%s", output);
 }
 
 void token_append(TokenArray* tokens, const Token* token) {
@@ -115,7 +128,7 @@ void token_init(const char* str, Token* token, TokenArray* tokens) {
 	if (isdigit(str[0])) {
 		for (int i = 1; i < strlen(str); i++) {
 			if (!isdigit(str[i])) {
-				printf("ERROR: Invalid syntax. '%s' :%i\n", str, line);
+				logerror("Invalid syntax. '%s' :%i", str, line);
 				arena_free(&arena);
 				exit(EXIT_FAILURE);
 			}
@@ -189,11 +202,38 @@ void tokens_from_source(const char* src, TokenArray* tokens) {
 	line = 1;
 
 	// replace with for loop
+	// TODO: rewrite this dogshit
 	while (1) {
 		char c = src[idx_src++];
 
 		if (c == '\0') break;  // EOF
-		if (c == '\n') { line++; continue; }  // ignore newline
+
+		if (c == '\n') {
+			line++;
+			continue;
+		}
+
+		// single-line comments
+		if (c == '/' && src[idx_src] == '/') {
+			while (c != '\n') {
+				c = src[idx_src++];
+			}
+			line++;
+			continue;
+		}
+
+		// block comments
+		if (c == '/' && src[idx_src] == '*') {
+			while (1) {
+				if (c == '*' && src[idx_src] == '/')
+					break;
+				if (c == '\n')
+					line++;
+				c = src[idx_src++];
+			}
+			idx_src++;
+			continue;
+		}
 
 		if (c == '"') {
 			c = src[idx_src++];

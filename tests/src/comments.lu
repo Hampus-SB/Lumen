@@ -1,0 +1,27 @@
+// ui32 () * & / this is a comment
+
+/*
+struct S {
+ABCDEFGH
+*/
+
+//S structtttt;
+
+/*hello world {*/
+ui64 main() {
+	// ui32 () * & / this is a comment
+
+	/*
+	struct S {
+	ABC
+	*/
+
+	//S structtttt;
+
+	/*hello world {*/
+
+	ui64 x = 5;// comment
+	ui64 y = 10;  // comment
+
+	return 0;
+}

@@ -6,7 +6,6 @@ foo:
 
 
 	mov rax, qword 10
-
 	mov rsp, rbp
 	pop rbp
 	ret
@@ -30,7 +29,6 @@ bar:
 	mov [rbp - 24], rax
 
 	mov rax, [rbp - 24]
-
 	mov rsp, rbp
 	pop rbp
 	ret

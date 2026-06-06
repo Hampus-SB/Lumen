@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "logging.h"
 
 SymbolTable symbol_table;
 
@@ -24,7 +25,7 @@ void symbol_table_append(Node* node) {
     if (symbol_table.len >= symbol_table.capacity) {
         symbol_table.capacity *= 2;
         symbol_table.symbols = realloc(symbol_table.symbols, symbol_table.capacity);
-        printf("Extended symbol table\n");
+        loginfo("Extended symbol table.");
     }
 
     Symbol* symbol = &symbol_table.symbols[symbol_table.len++];
@@ -42,20 +43,26 @@ void symbol_table_append(Node* node) {
     else if (node->type == NODE_STRUCT)
         symbol->type = SYM_STRUCT;
     else {
-        printf("Invalid node to create symbol. :%i\n", node->token->line);
+        logerror("Invalid node to create symbol. :%i", node->token->line);
     }
 
-    //printf("Added symbol '%s', '%s' | %p\n", symbol->name,
-    //    symbol->node->type_info->name, symbol->node);
+    loginfo("Added symbol '%s', '%s' | %p", symbol->name,
+        symbol->node->type_info->name, symbol->node);
 }
 
 Node* symbol_table_find_struct(const TypeObj* type) {
+    char temp[TYPE_NAME_SIZE] = {0};
+    strncpy(temp, type->name, TYPE_NAME_SIZE);
+    if (temp[strlen(temp) - 1] == '&') {
+        temp[strlen(temp) - 1] = '\0';
+    }
+
     for (int i = 0; i < symbol_table.len; i++) {
-        if (strcmp(type->name, symbol_table.symbols[i].name) == 0) {
+        if (strcmp(temp, symbol_table.symbols[i].name) == 0) {
             return symbol_table.symbols[i].node;
         }
     }
-    fprintf(stderr, "No struct with the name '%s'.\n", type->name);
+    logerror("No struct with the name '%s'.", type->name);
     return NULL;
 }
 
@@ -65,6 +72,6 @@ TypeObj* symbol_table_find_type(const char* name) {
             return symbol_table.symbols[i].node->type_info;
         }
     }
-    fprintf(stderr, "No symbol with the name '%s'.\n", name);
+    logerror("No symbol with the name '%s'.", name);
     return NULL;
 }

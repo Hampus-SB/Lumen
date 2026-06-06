@@ -15,12 +15,14 @@
 #define FILE_BUFFER_LINE_SIZE 128
 
 int main(int argc, char** argv) {
+	test_programs();
+	return 0;
+
+	/*
 	if (argc != 2) {
 		printf("No source file given.\n");
 		exit(EXIT_FAILURE);
 	}
-
-	test_programs();
 
 	FILE* fh = fopen(argv[1], "r");
 	if (fh == NULL) {
@@ -76,4 +78,6 @@ int main(int argc, char** argv) {
 
 	arena_free(get_arena());
 	return 0;
+
+	*/
 }

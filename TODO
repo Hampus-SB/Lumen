@@ -14,10 +14,11 @@ refactor
 free heap on failure
 function to convert type to pointer and reverse
 nested expressions
-comments
 primitive imports
 proper imports
 overflows
+while loop
+for loop
 
 refactor types
 refactor variable storage
@@ -33,3 +34,6 @@ return with expression
 return statement actually exits function
 universal pointer type
 basic tests
+comments
+redid debug logging
+struct pointers

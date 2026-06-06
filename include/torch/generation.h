@@ -11,6 +11,7 @@ typedef struct {
     char name[VARIABLE_NAME_SIZE];
     int offset;  // offset from rbp
     int size;  // size on stack in bytes
+    int struct_offset;  // for pointers, offset from base
     TypeObj* type;
 } Variable;
 

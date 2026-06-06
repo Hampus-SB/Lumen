@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "logging.h"
 
 void test_run_path(const char* path, const char* file_name) {
     arena_init(get_arena(), ARENA_DEFAULT_SIZE);
@@ -15,7 +16,7 @@ void test_run_path(const char* path, const char* file_name) {
 
     FILE* fh = fopen(path, "r");
     if (fh == NULL) {
-        printf("ERROR: Failed to open source file. '%s'\n", path);
+        logerror("Failed to open source file. '%s'", path);
         exit(EXIT_FAILURE);
     }
 
@@ -42,8 +43,10 @@ void test_run_path(const char* path, const char* file_name) {
 
     parse(&root, tokens);
 
+    print_tree(&root);
+
     if (!validate_types(&root)) {
-        printf("ERROR: Failed to validate types.\n");
+        logerror("Failed to validate types.");
     }
 
     generate_asm(&root, file_name);
@@ -53,30 +56,56 @@ void test_run_path(const char* path, const char* file_name) {
     symbol_table_free();
 }
 
+void test_compile(const char* file_name) {
+    char command[128] = {0};
+
+    sprintf(command, "nasm -f elf64 tests/output/%s.asm -o tests/output/%s.o"
+        , file_name, file_name);
+    system(command);
+
+    sprintf(command, "ld tests/output/%s.o -o tests/output/%s.out"
+        , file_name, file_name);
+    system(command);
+
+    sprintf(command, "rm tests/output/%s.o", file_name);
+    system(command);
+}
+
 void test_pointers() {
-    printf("TEST: started 'pointers'\n");
-
+    printf(" --- TEST: started 'pointers' --- \n");
     test_run_path("tests/src/pointers.lu", "tests/output/pointers.asm");
-
-    printf("TEST: finsished 'pointers'\n");
+    test_compile("pointers");
+    printf(" --- TEST: finsished 'pointers' --- \n\n");
 }
 
 void test_functions() {
-    printf("TEST: started 'functions'\n");
-
+    printf(" --- TEST: started 'functions' --- \n");
     test_run_path("tests/src/functions.lu", "tests/output/functions.asm");
-
-    printf("TEST: finsished 'functions'\n");
+    test_compile("functions");
+    printf(" --- TEST: finsished 'functions' --- \n\n");
 }
 
-void test_arrays() {}
+void test_structs() {
+    printf(" --- TEST: started 'structs' --- \n");
+    test_run_path("tests/src/structs.lu", "tests/output/structs.asm");
+    test_compile("structs");
+    printf(" --- TEST: finsished 'structs' --- \n\n");
+}
+
+void test_comments() {
+    printf(" --- TEST: started 'comments' --- \n");
+    test_run_path("tests/src/comments.lu", "tests/output/comments.asm");
+    test_compile("comments");
+    printf(" --- TEST: finsished 'comments' --- \n\n");
+}
 
 void test_programs() {
-    printf("TEST: starting tests\n");
+    printf("TEST: starting tests\n\n");
 
     test_pointers();
     test_functions();
-    test_arrays();
+    test_comments();
+    test_structs();
 
-    printf("TEST: finished tests\n\n\n\n");
+    printf("TEST: finished tests\n\n");
 }

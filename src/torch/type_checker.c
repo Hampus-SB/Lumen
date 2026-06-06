@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "logging.h"
 
 int validate_compare_nodes(const Node* a, const Node* b) {
     if (b->token->type == TOK_INT_LITERAL) {
@@ -19,7 +20,7 @@ int validate_compare_nodes(const Node* a, const Node* b) {
 
     const int result = a->type_info->id == b->type_info->id;
     if (result != 1) {
-        fprintf(stderr, "Invalid types. '%s', '%s'. :%i\n",
+        logerror("Invalid types. '%s', '%s'. :%i.",
             a->type_info->name, b->type_info->name,
             a->token->line);
     }

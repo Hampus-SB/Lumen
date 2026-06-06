@@ -1,7 +1,26 @@
+struct S {
+    ui32 x;
+    ui32 y;
+    ui32 z;
+}
+
 ui32 main() {
     ui32 a = 15;
     ui32 &b = &a;
     ui32 c = *b;
     *b = 5;
     c = *b;
+
+    asm("\n");
+
+    S s1;
+    S &s2 = &s1;
+
+    s1.x = 1;
+    s1.y = 2;
+    s1.z = 3;
+
+    s2->x = 4;
+    s2->y = 5;
+    s2->z = 6;
 }
