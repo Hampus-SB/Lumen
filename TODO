@@ -14,11 +14,11 @@ refactor
 free heap on failure
 function to convert type to pointer and reverse
 nested expressions
-primitive imports
 proper imports
 overflows
 while loop
 for loop
+comments before imports
 
 refactor types
 refactor variable storage
@@ -37,3 +37,4 @@ basic tests
 comments
 redid debug logging
 struct pointers
+primitive imports

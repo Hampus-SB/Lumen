@@ -1,0 +1,37 @@
+import mem_alloc.lu
+
+struct string {
+    ui8 &raw_string;
+    ui64 length;
+    ui64 capacity;
+}
+
+ui64 string_init(string &s2) {
+    s2->raw_string = mem_alloc(4096);
+    s2->length = 0;
+    s2->capacity = 4096;
+}
+
+ui64 string_print(string &s1) {
+    asm("\tmov rsi, [rax]\n");
+    asm("\tsub rax, qword 8\n");
+    asm("\tmov rdx, [rax]\n");
+    asm("\tmov rax, 1\n");
+    asm("\tmov rdi, rax\n");
+    asm("\tsyscall\n");
+}
+
+ui64 main() {
+    string s;
+    string_init(&s);
+
+    s.raw_string[0] = 65;
+    s.raw_string[1] = 66;
+    s.raw_string[2] = 67;
+    s.raw_string[3] = 11;
+    s.length = 4;
+
+    string_print(&s);
+
+    return 0;
+}

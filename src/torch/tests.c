@@ -1,3 +1,4 @@
+#include "../../include/torch/imports.h"
 #include "../../include/torch/tests.h"
 #include "../../include/torch/arena.h"
 #include "../../include/torch/symbols.h"
@@ -27,12 +28,16 @@ void test_run_path(const char* path, const char* file_name) {
         strcat(file, buffer);
     }
 
+    char file_post[8192] = {0};
+    int post_length;
+    import(file, 8192, file_post, &post_length);
+
     TokenArray tokens;
     tokens.capacity = TOKEN_DEFAULT_COUNT;
     tokens.count = 0;
     tokens.tokens = arena_alloc(get_arena(), tokens.capacity * sizeof(Token));
 
-    tokens_from_source(file, &tokens);
+    tokens_from_source(file_post, &tokens);
     for (int i = 0; i < tokens.count; i++) {
         //token_print(&tokens.tokens[i]);
     }
@@ -43,7 +48,7 @@ void test_run_path(const char* path, const char* file_name) {
 
     parse(&root, tokens);
 
-    print_tree(&root);
+    //print_tree(&root);
 
     if (!validate_types(&root)) {
         logerror("Failed to validate types.");
@@ -99,13 +104,21 @@ void test_comments() {
     printf(" --- TEST: finsished 'comments' --- \n\n");
 }
 
+void test_strings() {
+    printf(" --- TEST: started 'strings' --- \n");
+    test_run_path("tests/src/strings.lu", "tests/output/strings.asm");
+    test_compile("strings");
+    printf(" --- TEST: finsished 'strings' --- \n\n");
+}
+
 void test_programs() {
     printf("TEST: starting tests\n\n");
 
     test_pointers();
     test_functions();
-    test_comments();
     test_structs();
+    test_comments();
+    test_strings();
 
     printf("TEST: finished tests\n\n");
 }

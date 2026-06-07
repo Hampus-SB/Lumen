@@ -228,7 +228,15 @@ void generate_function_call(FILE* fh, const Node* node) {
 
 	if (node->parent->token->type == TOK_VARIABLE) {
 		const int offset = get_variable_offset(node->parent);
-		fprintf(fh, "\tmov [rbp - %i], rax\n", offset);
+		if (types_is_ptr(node->parent->type_info)) {
+			const int struct_offset = get_variable_struct_offset(node->parent);
+			fprintf(fh, "\tmov rbx, [rbp - %i]\n", offset);
+			fprintf(fh, "\tsub rbx, %i\n", struct_offset);
+			fprintf(fh, "\tmov [rbx], rax\n");
+		}
+		else {
+			fprintf(fh, "\tmov [rbp - %i], rax\n", offset);
+		}
 	}
 }
 
