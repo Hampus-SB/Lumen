@@ -1,3 +1,4 @@
+#include "../../include/torch/comments.h"
 #include "../../include/torch/imports.h"
 #include "../../include/torch/tests.h"
 #include "../../include/torch/arena.h"
@@ -22,22 +23,25 @@ void test_run_path(const char* path, const char* file_name) {
     }
 
     char file[8192] = {0};
+    char file2[8192] = {0};
 
     char buffer[8192];
     while (fgets(buffer, 8192, fh) != NULL) {
         strcat(file, buffer);
     }
 
-    char file_post[8192] = {0};
-    int post_length;
-    import(file, 8192, file_post, &post_length);
+    int out_len = 0;
+    comments_remove(file, 8192, file2, &out_len);
+    memset(file, 0, 8192);
+
+    import(file2, 8192, file, &out_len);
 
     TokenArray tokens;
     tokens.capacity = TOKEN_DEFAULT_COUNT;
     tokens.count = 0;
     tokens.tokens = arena_alloc(get_arena(), tokens.capacity * sizeof(Token));
 
-    tokens_from_source(file_post, &tokens);
+    tokens_from_source(file, &tokens);
     for (int i = 0; i < tokens.count; i++) {
         //token_print(&tokens.tokens[i]);
     }
