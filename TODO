@@ -18,7 +18,6 @@ proper imports
 overflows
 while loop
 for loop
-comments before imports
 
 refactor types
 refactor variable storage
@@ -38,3 +37,4 @@ comments
 redid debug logging
 struct pointers
 primitive imports
+comments before imports
