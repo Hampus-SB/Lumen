@@ -15,7 +15,6 @@ function to convert type to pointer and reverse
 nested expressions
 proper imports
 overflows
-while loop
 for loop
 else if and else blocks
 
@@ -39,3 +38,4 @@ struct pointers
 primitive imports
 comments before imports
 if statements
+while loop
