@@ -158,26 +158,6 @@ void parse_operator(Node* node) {
 	parse_expression(node_op);
 }
 
-// i is at exit token
-void parse_exit(Node* parent) {
-	if (parser_peek(2)->type != TOK_SEMICOLON) {
-		logerror("Expected semicolon after exit.");
-		arena_free(get_arena());
-		exit(EXIT_FAILURE);
-	}
-
-	Token* token = parser_peek(0);
-
-	// create exit node
-	TypeObj* type = types_get_type_obj("ui32");
-	Node* node_exit = &parent->children[parent->len++];
-	node_init(node_exit, parent, NODE_STATEMENT, token, NODE_CHILDREN_COUNT, type);
-
-	// move to token after exit
-	parser_consume();
-	parse_expression(node_exit);
-}
-
 void parse_function_call(Node* parent) {
 	Token* token = parser_peek(0);
 	TypeObj* type = symbol_table_find_type(token->value);
