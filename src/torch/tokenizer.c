@@ -15,8 +15,11 @@ const char* keywords[] = {
 	"=", "+", "-", "*", "/",
 	"(", ")", "{", "}", "[", "]",
 	",", "&", "*", ";",
-	"return", "struct",
+	"==", ">", "<", ">=", "<=",
+	"return", "struct", "if",
 };
+
+#define KEYWORD_COUNT 23
 
 int line;
 
@@ -43,7 +46,7 @@ void token_print(const Token* token) {
 
 	char temp[32] = {0};
 
-	if (token->type < 17) {
+	if (token->type < KEYWORD_COUNT) {
 		sprintf(temp, "'%s', %d", keywords[token->type], token->type);
 		strcat(output, temp);
 	} else if (token->type == TOK_TYPE) {

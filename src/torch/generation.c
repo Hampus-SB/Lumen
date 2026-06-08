@@ -8,6 +8,11 @@
 
 Stack stack;
 
+void get_label(char* out) {
+	static int count = 0;
+	sprintf(out, "L%i", count++);
+}
+
 void stack_init() {
 	stack.index = 0;
 	for (int i = 0; i < MAX_FUNCTIONS; i++) {
@@ -178,7 +183,6 @@ void generate_function(FILE* fh, const Node* node) {
 	fprintf(fh, "\tmov rbp, rsp\n\n");
 
 	for (int i = 0; i < node->len; i++) {
-		loginfo("%d, %p", node->len, &node->children[i]);
 		generate_node(fh, &node->children[i]);
 		if (node->children[i].type == NODE_LOCAL_VARIABLE) {
 			if (i == 0)
@@ -376,6 +380,55 @@ void generate_right_side(FILE* fh, const Node* node) {
 	}
 }
 
+void generate_if_statement(FILE* fh, const Node* node) {
+	fprintf(fh, "\n");
+
+	// condition
+	generate_expression(fh, &node->children[0].children[0], "rbx");
+	generate_expression(fh, &node->children[0].children[1], "rax");
+
+	char label[32] = {0};
+	get_label(label);
+
+	fprintf(fh, "\tcmp rbx, rax\n");
+
+	switch (node->children[0].token->type) {
+		case TOK_EQUIVALENT:
+			fprintf(fh, "\tjne %s\n\n", label);
+			break;
+
+		case TOK_GREATERTHAN:
+			fprintf(fh, "\tjle %s\n\n", label);
+			break;
+
+		case TOK_LESSTHAN:
+			fprintf(fh, "\tjge %s\n\n", label);
+			break;
+
+		case TOK_GREATERTHANEQUAL:
+			fprintf(fh, "\tjl %s\n\n", label);
+			break;
+
+		case TOK_LESSTHANEQUAL:
+			fprintf(fh, "\tjg %s\n\n", label);
+			break;
+
+		default:
+			logwarning("If statement has a wierd token.");
+			break;
+	}
+
+	// start at 1 to skip the boolean expression node
+	for (int i = 1; i < node->len; i++) {
+		generate_node(fh, &node->children[i]);
+	}
+
+	fprintf(fh, "\n\tjmp %s\n", label);
+
+	// end label
+	fprintf(fh, "\n%s:\n", label);
+}
+
 void generate_node(FILE* fh, const Node* node) {
 	//printf("gen node: type = %d\n", node->type);
 
@@ -414,6 +467,10 @@ void generate_node(FILE* fh, const Node* node) {
 
 		case NODE_LOCAL_VARIABLE:
 			generate_variable_declaration(fh, node);
+			break;
+
+		case NODE_IF:
+			generate_if_statement(fh, node);
 			break;
 
 		case NODE_DECLARATION:

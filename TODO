@@ -9,7 +9,6 @@ vector type
 validate function arguments
 variable names are local
 scopes
-if statements
 refactor
 free heap on failure
 function to convert type to pointer and reverse
@@ -18,6 +17,7 @@ proper imports
 overflows
 while loop
 for loop
+else if and else blocks
 
 refactor types
 refactor variable storage
@@ -38,3 +38,4 @@ redid debug logging
 struct pointers
 primitive imports
 comments before imports
+if statements

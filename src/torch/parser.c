@@ -524,6 +524,32 @@ void parse_assembly(Node* parent) {
 	parser_consume();
 }
 
+void parse_boolean_expression(Node* parent) {
+	Token* token_operator = parser_peek(1);
+	TypeObj* type = types_get_type_obj("NULL");
+
+	Node* node_bool_expr = &parent->children[parent->len++];
+	node_init(node_bool_expr, parent, NODE_BOOLEAN_EXPRESSION, token_operator, 2, type);
+
+	// calls to parse_expression will consume the operator token and open brace
+	parse_expression(node_bool_expr);
+	parse_expression(node_bool_expr);
+}
+
+void parse_if_statement(Node* parent) {
+	TypeObj* type = types_get_type_obj("NULL");
+	Token* token_if = parser_peek(0);
+	parser_consume();
+
+	Node* node_if = &parent->children[parent->len++];
+	node_init(node_if, parent, NODE_IF, token_if, NODE_ROOT_CHILDREN_COUNT, type);
+
+	parse_boolean_expression(node_if);
+
+	// deal with the body of the if statement
+	parse_node(node_if);
+}
+
 // parse for children of one depth (kind of)
 void parse_node(Node* parent) {
 	Token* token = parser_peek(0);
@@ -567,6 +593,10 @@ void parse_node(Node* parent) {
 
 		else if (token->type == TOK_RETURN) {
 			parse_return(parent);
+		}
+
+		else if (token->type == TOK_IF) {
+			parse_if_statement(parent);
 		}
 		
 		else {

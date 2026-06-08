@@ -8,8 +8,6 @@
 
 #define FUNCTION_SPECIAL '#'
 
-#define KEYWORD_COUNT 17
-
 typedef enum {
     TOK_EQUALS,
     TOK_ADD,
@@ -26,8 +24,14 @@ typedef enum {
     TOK_ADDRESS,
     TOK_POINTER,
     TOK_SEMICOLON,
+    TOK_EQUIVALENT,
+    TOK_GREATERTHAN,
+    TOK_LESSTHAN,
+    TOK_GREATERTHANEQUAL,
+    TOK_LESSTHANEQUAL,
     TOK_RETURN,
     TOK_STRUCT,
+    TOK_IF,
 
     TOK_TYPE,
 

@@ -53,6 +53,9 @@ void test_run_path(const char* path, const char* file_name) {
     parse(&root, tokens);
 
     //print_tree(&root);
+    //print_tree(&root.children[0]);
+    //print_tree(&root.children[0].children[0]);
+    //print_tree(&root.children[0].children[0].children[0]);
 
     if (!validate_types(&root)) {
         logerror("Failed to validate types.");
@@ -115,6 +118,13 @@ void test_strings() {
     printf(" --- TEST: finsished 'strings' --- \n\n");
 }
 
+void test_ifstatements() {
+    printf(" --- TEST: started 'if statements' --- \n");
+    test_run_path("tests/src/ifstatements.lu", "tests/output/ifstatements.asm");
+    test_compile("ifstatements");
+    printf(" --- TEST: finsished 'if statements' --- \n\n");
+}
+
 void test_programs() {
     printf("TEST: starting tests\n\n");
 
@@ -123,6 +133,7 @@ void test_programs() {
     test_structs();
     test_comments();
     test_strings();
+    test_ifstatements();
 
     printf("TEST: finished tests\n\n");
 }
