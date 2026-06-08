@@ -1,0 +1,14 @@
+ui64 main() {
+    ui64 a = 0;
+    ui64 b = 15;
+
+    while a < b {
+        a = a + 2;
+        while 1 == 1 {
+            b = b + 1;
+            break;
+        }
+    }
+
+    return a;
+}

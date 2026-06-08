@@ -429,6 +429,69 @@ void generate_if_statement(FILE* fh, const Node* node) {
 	fprintf(fh, "\n%s:\n", label);
 }
 
+void generate_while_loop(FILE* fh, const Node* node) {
+	fprintf(fh, "\n");
+
+	char label_start[32];
+	char label_end[32];
+	get_label(label_start);
+	get_label(label_end);
+
+	fprintf(fh, "%s:\n", label_start);
+
+	// comparison
+	// if the condition isnt true jump to the end of the while block
+	generate_expression(fh, &node->children[0].children[0], "rbx");
+	generate_expression(fh, &node->children[0].children[1], "rax");
+
+	fprintf(fh, "\tcmp rbx, rax\n");
+
+	// TODO: extract into function to avoid duplicate
+	switch (node->children[0].token->type) {
+		case TOK_EQUIVALENT:
+			fprintf(fh, "\tjne %s\n", label_end);
+			break;
+
+		case TOK_GREATERTHAN:
+			fprintf(fh, "\tjle %s\n", label_end);
+			break;
+
+		case TOK_LESSTHAN:
+			fprintf(fh, "\tjge %s\n", label_end);
+			break;
+
+		case TOK_GREATERTHANEQUAL:
+			fprintf(fh, "\tjl %s\n", label_end);
+			break;
+
+		case TOK_LESSTHANEQUAL:
+			fprintf(fh, "\tjg %s\n", label_end);
+			break;
+
+		default:
+			logwarning("While loop has a wierd token.");
+			break;
+	}
+
+	// start at 1 to skip the boolean expression node
+	for (int i = 1; i < node->len; i++) {
+		switch (node->children[i].type) {
+			case NODE_BREAK:
+				fprintf(fh, "\tjmp %s\n", label_end);
+				break;
+			case NODE_CONTINUE:
+				fprintf(fh, "\tjmp %s\n", label_start);
+				break;
+			default:
+				generate_node(fh, &node->children[i]);
+				break;
+		}
+	}
+
+	fprintf(fh, "\tjmp %s\n\n", label_start);
+	fprintf(fh, "%s:\n", label_end);
+}
+
 void generate_node(FILE* fh, const Node* node) {
 	//printf("gen node: type = %d\n", node->type);
 
@@ -471,6 +534,10 @@ void generate_node(FILE* fh, const Node* node) {
 
 		case NODE_IF:
 			generate_if_statement(fh, node);
+			break;
+
+		case NODE_WHILE:
+			generate_while_loop(fh, node);
 			break;
 
 		case NODE_DECLARATION:

@@ -125,6 +125,13 @@ void test_ifstatements() {
     printf(" --- TEST: finsished 'if statements' --- \n\n");
 }
 
+void test_whileloops() {
+    printf(" --- TEST: started 'while loops' --- \n");
+    test_run_path("tests/src/whileloops.lu", "tests/output/whileloops.asm");
+    test_compile("whileloops");
+    printf(" --- TEST: finsished 'while loops' --- \n\n");
+}
+
 void test_programs() {
     printf("TEST: starting tests\n\n");
 
@@ -134,6 +141,7 @@ void test_programs() {
     test_comments();
     test_strings();
     test_ifstatements();
+    test_whileloops();
 
     printf("TEST: finished tests\n\n");
 }

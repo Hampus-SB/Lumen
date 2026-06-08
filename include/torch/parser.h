@@ -22,8 +22,11 @@ typedef enum {
     NODE_ASSEMBLY,
     NODE_INDEX,  // might remove or something
     NODE_RETURN,
-    NODE_IF,
     NODE_BOOLEAN_EXPRESSION,
+    NODE_IF,
+    NODE_WHILE,
+    NODE_BREAK,
+    NODE_CONTINUE,
 } NodeType;
 
 typedef struct Node {

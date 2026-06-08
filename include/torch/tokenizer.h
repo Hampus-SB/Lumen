@@ -32,6 +32,9 @@ typedef enum {
     TOK_RETURN,
     TOK_STRUCT,
     TOK_IF,
+    TOK_WHILE,
+    TOK_BREAK,
+    TOK_CONTINUE,
 
     TOK_TYPE,
 

@@ -16,10 +16,11 @@ const char* keywords[] = {
 	"(", ")", "{", "}", "[", "]",
 	",", "&", "*", ";",
 	"==", ">", "<", ">=", "<=",
-	"return", "struct", "if",
+	"return", "struct",
+	"if", "while", "break", "continue"
 };
 
-#define KEYWORD_COUNT 23
+#define KEYWORD_COUNT 26
 
 int line;
 

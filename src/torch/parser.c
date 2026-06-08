@@ -550,6 +550,44 @@ void parse_if_statement(Node* parent) {
 	parse_node(node_if);
 }
 
+void parse_while_loop(Node* parent) {
+	TypeObj* type = types_get_type_obj("NULL");
+	Token* token_while = parser_peek(0);
+	parser_consume();
+
+	Node* node_while = &parent->children[parent->len++];
+	node_init(node_while, parent, NODE_WHILE, token_while, NODE_ROOT_CHILDREN_COUNT, type);
+
+	parse_boolean_expression(node_while);
+
+	// deal with the body of the while loop
+	parse_node(node_while);
+}
+
+void parse_break(Node* parent) {
+	TypeObj* type = types_get_type_obj("NULL");
+	Token* token_break = parser_peek(0);
+	parser_consume();
+
+	Node* node_break = &parent->children[parent->len++];
+	node_init(node_break, parent, NODE_BREAK, token_break, 0, type);
+
+	// consume semicolon
+	parser_consume();
+}
+
+void parse_continue(Node* parent) {
+	TypeObj* type = types_get_type_obj("NULL");
+	Token* token_continue = parser_peek(0);
+	parser_consume();
+
+	Node* node_continue = &parent->children[parent->len++];
+	node_init(node_continue, parent, NODE_CONTINUE, token_continue, 0, type);
+
+	// consume semicolon
+	parser_consume();
+}
+
 // parse for children of one depth (kind of)
 void parse_node(Node* parent) {
 	Token* token = parser_peek(0);
@@ -597,6 +635,18 @@ void parse_node(Node* parent) {
 
 		else if (token->type == TOK_IF) {
 			parse_if_statement(parent);
+		}
+
+		else if (token->type == TOK_WHILE) {
+			parse_while_loop(parent);
+		}
+
+		else if (token->type == TOK_BREAK) {
+			parse_break(parent);
+		}
+
+		else if (token->type == TOK_CONTINUE) {
+			parse_continue(parent);
 		}
 		
 		else {
