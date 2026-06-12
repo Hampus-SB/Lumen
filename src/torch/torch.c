@@ -43,6 +43,18 @@ int main(int argc, char** argv) {
 	types_init();
 	symbol_table_init();
 
+    	char file2[8192] = {0};
+
+    	char buffer[8192];
+    	while (fgets(buffer, 8192, fh) != NULL) {
+        	strcat(file, buffer);
+    	}
+
+    	int out_len = 0;
+    	comments_remove(file, 8192, file2, &out_len);
+    	memset(file, 0, 8192);
+
+    	import(file2, 8192, file, &out_len);
 	TokenArray tokens;
 	tokens.capacity = TOKEN_DEFAULT_COUNT;
 	tokens.count = 0;

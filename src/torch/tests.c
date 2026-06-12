@@ -132,6 +132,13 @@ void test_whileloops() {
     printf(" --- TEST: finsished 'while loops' --- \n\n");
 }
 
+void test_speed() {
+    printf(" --- TEST: started 'speed' --- \n");
+    test_run_path("tests/src/test.lu", "tests/output/test.asm");
+    test_compile("test");
+    printf(" --- TEST: finsished 'speed' --- \n\n");
+}
+
 void test_programs() {
     printf("TEST: starting tests\n\n");
 
@@ -142,6 +149,7 @@ void test_programs() {
     test_strings();
     test_ifstatements();
     test_whileloops();
+    test_speed();
 
     printf("TEST: finished tests\n\n");
 }

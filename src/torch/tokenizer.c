@@ -173,6 +173,9 @@ void add_token(TokenArray* tokens, const char* buffer) {
 	if (buffer[0] == '\0')
 		return;
 
+	if (buffer[0] == '\t' && strlen(buffer) == 1)
+		return;
+
 	int offset = 0;
 	char* buf = malloc(sizeof(char) * TOKEN_BUFFER_SIZE);
 	memset(buf, 0, TOKEN_BUFFER_SIZE);
